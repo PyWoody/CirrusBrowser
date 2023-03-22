@@ -1,6 +1,6 @@
 import uuid
 
-from cirrius import exceptions, settings
+from cirrus import exceptions, settings
 from cirrus.actions.signals import ActionSignals
 
 from PySide6.QtGui import QAction

@@ -360,12 +360,12 @@ class S3Item:
         )
 
     @classmethod
-    def create_from_content(cls, *, bucket, content):
+    def create_from_content(cls, user, *, bucket, content):
         root = '/'.join(
             [bucket, content.get('Key', content.get('Prefix'))]
         )
         size = content.get('Size', 0)
-        _user = new_user(self.user, root)
+        _user = new_user(user, root)
         return cls(
             _user,
             size=size,
@@ -460,16 +460,24 @@ class S3Item:
             client_config['Prefix'] = space.rstrip('/') + '/'
         response = client.list_objects_v2(**client_config)
         for content in response.get('CommonPrefixes', []):
-            yield self.create_from_content(bucket=bucket, content=content)
+            yield self.create_from_content(
+                self.user, bucket=bucket, content=content
+            )
         for content in response.get('Contents', []):
-            yield self.create_from_content(bucket=bucket, content=content)
+            yield self.create_from_content(
+                self.user, bucket=bucket, content=content
+            )
         while response.get('IsTruncated'):
             client_config['ContinuationToken'] = response['NextContinuationToken']
             response = client.list_objects_v2(**client_config)
             for content in response.get('CommonPrefixes', []):
-                yield self.create_from_content(bucket=bucket, content=content)
+                yield self.create_from_content(
+                    self.user, bucket=bucket, content=content
+                )
             for content in response.get('Contents', []):
-                yield self.create_from_content(bucket=bucket, content=content)
+                yield self.create_from_content(
+                    self.user, bucket=bucket, content=content
+                )
 
     def upload(self, callback=None, overwrite=False, buffer_size=4096):
         c_type, _ = mimetypes.guess_type(self.key)
@@ -602,7 +610,7 @@ class S3Item:
 def new_user(user, root):
     _user = user.copy()
     _user['Root'] = root
-    return user
+    return _user
 
 
 types = {'local': LocalItem, 's3': S3Item}

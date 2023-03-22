@@ -4,7 +4,7 @@ import uuid
 from functools import partial
 
 from .base import BaseAction, BaseRunnable
-from cirrus import database, dialogs, exceptions, items, settings , utils
+from cirrus import database, dialogs, exceptions, items, settings, utils
 from cirrus.actions.signals import ActionSignals
 
 from PySide6.QtCore import Slot
