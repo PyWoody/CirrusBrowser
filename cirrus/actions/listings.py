@@ -343,7 +343,6 @@ class FolderRunnable(BaseRunnable):
 
     def __del__(self, *args, **kwargs):
         QSqlDatabase.removeDatabase(self._id)
-        super().__del__(*args, **kwargs)
 
 
 class FoldersRunnable(BaseRunnable):
@@ -443,7 +442,6 @@ class FoldersRunnable(BaseRunnable):
 
     def __del__(self, *args, **kwargs):
         QSqlDatabase.removeDatabase(self._id)
-        super().__del__(*args, **kwargs)
 
 
 class MixedItemsRunnable(BaseRunnable):
@@ -541,7 +539,6 @@ class MixedItemsRunnable(BaseRunnable):
 
     def __del__(self, *args, **kwargs):
         QSqlDatabase.removeDatabase(self._id)
-        super().__del__(*args, **kwargs)
 
 
 class FilesRunnable(BaseRunnable):
@@ -577,7 +574,6 @@ class FilesRunnable(BaseRunnable):
 
     def __del__(self, *args, **kwargs):
         QSqlDatabase.removeDatabase(self._id)
-        super().__del__(*args, **kwargs)
 
 
 class RemoveItemsRunnable(BaseRunnable):
