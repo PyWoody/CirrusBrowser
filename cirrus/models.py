@@ -3,7 +3,7 @@ import threading
 import os
 
 from cirrus import utils
-from cirrus.items import S3Item
+from cirrus.items import DigitalOceanItem, S3Item
 from cirrus.statuses import TransferPriority
 
 from PySide6.QtCore import (
@@ -187,29 +187,16 @@ class LocalFileSystemModel(QFileSystemModel):
                         self.removeRow(index.row(), result_parent)
 
 
-class S3FilesTreeModel(QStandardItemModel):
-    new_folder_item = Signal(S3Item, str, dict)
-    new_file_item = Signal(S3Item, tuple, dict)
-    loading_row = Signal(S3Item)
-    all_items_loaded = Signal(S3Item)
-    no_children = Signal(S3Item)
+class BaseS3FilesTreeModel(QStandardItemModel):
+    new_folder_item = Signal(object, str, dict)
+    new_file_item = Signal(object, tuple, dict)
+    all_items_loaded = Signal(object)
+    no_children = Signal(object)
+    loading_row = Signal(QStandardItem)
 
-    def __init__(self, *, user, parent=None, max_keys=1_000):
+    def __init__(self, parent=None):
         super().__init__(parent)
-        self.user = user.copy()
-        self.new_folder_item.connect(self.create_folder_item)
-        self.new_file_item.connect(self.create_file_item)
-        self.all_items_loaded.connect(self.remove_loading_row)
-        self.no_children.connect(self.no_items_found)
-        self.loading_row.connect(self.create_loading_row)
-        self.setHorizontalHeaderLabels(['Name', 'Size', 'Last Modified'])
-        self.max_keys = max_keys
-        self.current_row = 0
-        # TODO: connect to any row add slots to reset this
-        self.valid_last_row = True
-        # TODO: Cancel specific threads
-        self.__stopped = False
-        self.fetch_children(S3Item(self.user, is_dir=True))
+        self._stopped = False
 
     def hasChildren(self, parent=QModelIndex()):
         if not parent.isValid():
@@ -258,7 +245,7 @@ class S3FilesTreeModel(QStandardItemModel):
         logging.info(f'Starting fetch for {client_config} | {parent}')
         response = client.list_objects_v2(**client_config)
         for content in response.get('CommonPrefixes', []):
-            if self.__stopped:
+            if self._stopped:
                 return
             fname = content['Prefix'].strip('/').split('/')[-1]
             root = f'{client_config["Bucket"]}/{content["Prefix"]}'
@@ -274,7 +261,7 @@ class S3FilesTreeModel(QStandardItemModel):
             if not found:
                 found = True
         for content in response.get('Contents', []):
-            if self.__stopped:
+            if self._stopped:
                 return
             if (key := content['Key']) != client_config['Prefix']:
                 fname = key.split('/')[-1]
@@ -301,12 +288,12 @@ class S3FilesTreeModel(QStandardItemModel):
                 if not found:
                     found = True
         while response.get('IsTruncated'):
-            if self.__stopped:
+            if self._stopped:
                 return
             client_config['ContinuationToken'] = response['NextContinuationToken']
             response = client.list_objects_v2(**client_config)
             for content in response.get('CommonPrefixes', []):
-                if self.__stopped:
+                if self._stopped:
                     return
                 fname = content['Prefix'].strip('/').split('/')[-1]
                 root = f'{client_config["Bucket"]}/{content["Prefix"]}'
@@ -325,7 +312,7 @@ class S3FilesTreeModel(QStandardItemModel):
                 if not found:
                     found = True
             for content in response.get('Contents', []):
-                if self.__stopped:
+                if self._stopped:
                     return
                 if (key := content['Key']) != client_config['Prefix']:
                     fname = key.split('/')[-1]
@@ -360,52 +347,20 @@ class S3FilesTreeModel(QStandardItemModel):
 
     @Slot(QStandardItem)
     def create_loading_row(self, parent):
-        if not self.__stopped:
+        if not self._stopped:
             item = QStandardItem('Fetching...')
             parent.appendRow(item)
 
     @Slot(QStandardItem)
     def remove_loading_row(self, parent):
-        if not self.__stopped:
+        if not self._stopped:
             parent.removeRow(parent.rowCount() - 1)
 
     @Slot(QStandardItem)
     def no_items_found(self, parent):
-        if not self.__stopped:
+        if not self._stopped:
             parent.removeRow(parent.rowCount() - 1)
             parent.appendRow(QStandardItem('(Empty)'))
-
-    @Slot(QStandardItem, str, dict)
-    def create_folder_item(self, parent, fname, data):
-        if not self.__stopped:
-            if parent_data := parent.data():
-                if parent_data.collapsed:
-                    logging.info(f'{parent} exited due to collapse.')
-                    return
-            loading_row = parent.rowCount()
-            _user = self.user.copy()
-            _user.update(data)
-            _user['Root'] = data['root']  # Needs to be smarter
-            item_data = S3Item(_user, is_dir=True)
-            item = QStandardItem(fname)
-            item.setData(item_data)
-            parent.insertRow(loading_row - 1, [item])
-            self.valid_last_row = True
-
-    @Slot(QStandardItem, tuple, dict)
-    def create_file_item(self, parent, items, data):
-        if not self.__stopped:
-            if parent_data := parent.data():
-                if parent_data.collapsed:
-                    logging.info(f'{parent} exited due to collapse.')
-                    return
-            loading_row = parent.rowCount()
-            out_items = [QStandardItem(item_str) for item_str in items]
-            _user = self.user.copy()
-            _user.update(data)
-            out_items[0].setData(S3Item(_user))
-            parent.insertRow(loading_row - 1, out_items)
-            self.valid_last_row = True
 
     @Slot(QModelIndex)
     def view_collapsed(self, index):
@@ -446,12 +401,114 @@ class S3FilesTreeModel(QStandardItemModel):
                         self.removeRow(index.row(), result_parent)
 
 
+class S3FilesTreeModel(BaseS3FilesTreeModel):
+
+    def __init__(self, *, user, parent=None, max_keys=1_000):
+        super().__init__(parent)
+        self.user = user.copy()
+        self.new_folder_item.connect(self.create_folder_item)
+        self.new_file_item.connect(self.create_file_item)
+        self.all_items_loaded.connect(self.remove_loading_row)
+        self.no_children.connect(self.no_items_found)
+        self.loading_row.connect(self.create_loading_row)
+        self.setHorizontalHeaderLabels(['Name', 'Size', 'Last Modified'])
+        self.max_keys = max_keys
+        self.current_row = 0
+        # TODO: connect to any row add slots to reset this
+        self.valid_last_row = True
+        # TODO: Cancel specific threads
+        self.fetch_children(S3Item(self.user, is_dir=True))
+
+    @Slot(QStandardItem, str, dict)
+    def create_folder_item(self, parent, fname, data):
+        if not self._stopped:
+            if parent_data := parent.data():
+                if parent_data.collapsed:
+                    logging.info(f'{parent} exited due to collapse.')
+                    return
+            loading_row = parent.rowCount()
+            _user = self.user.copy()
+            _user.update(data)
+            _user['Root'] = data['root']  # Needs to be smarter
+            item_data = S3Item(_user, is_dir=True)
+            item = QStandardItem(fname)
+            item.setData(item_data)
+            parent.insertRow(loading_row - 1, [item])
+            self.valid_last_row = True
+
+    @Slot(QStandardItem, tuple, dict)
+    def create_file_item(self, parent, items, data):
+        if not self._stopped:
+            if parent_data := parent.data():
+                if parent_data.collapsed:
+                    logging.info(f'{parent} exited due to collapse.')
+                    return
+            loading_row = parent.rowCount()
+            out_items = [QStandardItem(item_str) for item_str in items]
+            _user = self.user.copy()
+            _user.update(data)
+            out_items[0].setData(S3Item(_user))
+            parent.insertRow(loading_row - 1, out_items)
+            self.valid_last_row = True
+
+
+class DigitalOceanFilesTreeModel(BaseS3FilesTreeModel):
+
+    def __init__(self, *, user, parent=None, max_keys=1_000):
+        super().__init__(parent)
+        self.user = user.copy()
+        self.new_folder_item.connect(self.create_folder_item)
+        self.new_file_item.connect(self.create_file_item)
+        self.all_items_loaded.connect(self.remove_loading_row)
+        self.no_children.connect(self.no_items_found)
+        self.loading_row.connect(self.create_loading_row)
+        self.setHorizontalHeaderLabels(['Name', 'Size', 'Last Modified'])
+        self.max_keys = max_keys
+        self.current_row = 0
+        # TODO: connect to any row add slots to reset this
+        self.valid_last_row = True
+        # TODO: Cancel specific threads
+        self.fetch_children(DigitalOceanItem(self.user, is_dir=True))
+
+    @Slot(QStandardItem, str, dict)
+    def create_folder_item(self, parent, fname, data):
+        if not self._stopped:
+            if parent_data := parent.data():
+                if parent_data.collapsed:
+                    logging.info(f'{parent} exited due to collapse.')
+                    return
+            loading_row = parent.rowCount()
+            _user = self.user.copy()
+            _user.update(data)
+            _user['Root'] = data['root']  # Needs to be smarter
+            item_data = DigitalOceanItem(_user, is_dir=True)
+            item = QStandardItem(fname)
+            item.setData(item_data)
+            parent.insertRow(loading_row - 1, [item])
+            self.valid_last_row = True
+
+    @Slot(QStandardItem, tuple, dict)
+    def create_file_item(self, parent, items, data):
+        if not self._stopped:
+            if parent_data := parent.data():
+                if parent_data.collapsed:
+                    logging.info(f'{parent} exited due to collapse.')
+                    return
+            loading_row = parent.rowCount()
+            out_items = [QStandardItem(item_str) for item_str in items]
+            _user = self.user.copy()
+            _user.update(data)
+            out_items[0].setData(DigitalOceanItem(_user))
+            parent.insertRow(loading_row - 1, out_items)
+            self.valid_last_row = True
+
+
 class SearchResultsModel(QStandardItemModel):
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.root = self.invisibleRootItem() if parent is None else parent
-        self.__stopped = False
+        self._stopped = False
         self.valid_last_row = True
         self.step_amount = 100
         self.current_row = 0
@@ -495,7 +552,7 @@ class SearchResultsModel(QStandardItemModel):
 
     @Slot(object)
     def add_result(self, item):
-        if not self.__stopped:
+        if not self._stopped:
             try:
                 out_items = [QStandardItem('0')]  # Checkbox
                 out_items.append(QStandardItem(item.root))

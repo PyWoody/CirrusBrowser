@@ -10,7 +10,11 @@ from cirrus import database, menus, settings, utils
 from cirrus.executor import Executor
 from cirrus.items import TransferItem
 from cirrus.statuses import TransferStatus
-from cirrus.views.listings import LocalFileListing, S3FileListing
+from cirrus.views.listings import (
+    DigitalOceanFileListing,
+    LocalFileListing,
+    S3FileListing,
+)
 
 from PySide6.QtCore import (
     Qt,
@@ -238,7 +242,7 @@ class CentralWidgetWindow(QWidget):  # Terrible name
         listing_types = {
             'local': LocalFileListing,
             's3': S3FileListing,
-            'digital ocean': S3FileListing,
+            'digital ocean': DigitalOceanFileListing,
         }
         if listing := listing_types.get(account['Type'].lower()):
             view = listing(account)
@@ -256,7 +260,9 @@ class CentralWidgetWindow(QWidget):  # Terrible name
         widget.setLayout(view_layout)
         self.splitter_listing_panels.append((widget, view, account))
         root_change_cb = settings.update_panel_by_index_cb(
-            account, len(self.splitter_listing_panels) - 1, 'Root'
+            panel=account,
+            index=len(self.splitter_listing_panels) - 1,
+            key='Root'
         )
         view.root_changed.connect(root_change_cb)
         self.listings_view_splitter.addWidget(widget)

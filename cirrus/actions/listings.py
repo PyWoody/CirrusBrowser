@@ -232,11 +232,8 @@ class CreateDirectoryRunnable(BaseRunnable):
     @Slot()
     def run(self):
         self.signals.started.emit(f'Testing - {self.parent.root} - START')
-        if self.parent.type == 's3':
-            item = items.S3Item
-        elif self.parent.type == 'local':
-            item = items.LocalItem
-        else:
+        item = items.types.get(self.parent.type.lower())
+        if not item:
             raise NotImplementedError
         for _, checkbox, label in self.dialog.folder_options:
             if checkbox.isChecked():

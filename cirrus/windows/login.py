@@ -4,7 +4,7 @@ import boto3
 import keyring
 
 from cirrus import settings
-from cirrus.items import S3Item
+from cirrus.items import DigitalOceanItem, S3Item
 from cirrus.utils import HLine
 
 from PySide6.QtCore import Qt, Signal
@@ -229,14 +229,23 @@ class LoginWindow(QDialog):
         key = key.text()
         secret_key = secret_key.text()
         try:
+            user = settings.new_user(
+                act_type=service_type,
+                access_key=key,
+                nickname=nickname,
+                region=region,
+                endpoint_url=endpoint,
+                root=root,
+            )
             session = boto3.session.Session()
             client = session.client(
                 's3',
                 region_name=region,
+                endpoint_url=endpoint,
                 aws_access_key_id=key,
                 aws_secret_access_key=secret_key,
             )
-            item = S3Item(root, is_dir=True)
+            item = DigitalOceanItem(user, is_dir=True)
             config = {
                 'Bucket': item.bucket,
                 'MaxKeys': 1_000,
@@ -269,14 +278,6 @@ class LoginWindow(QDialog):
             )
         else:
             # Keyring
-            user = settings.new_user(
-                act_type=service_type,
-                access_key=key,
-                nickname=nickname,
-                region=region,
-                endpoint_url=endpoint,
-                root=root,
-            )
             settings.update_saved_users(user)
             keyring.set_password('system', f'_s3_{key}_secret_key', secret_key)
             self.accounts.append(user)
@@ -297,6 +298,13 @@ class LoginWindow(QDialog):
         key = key.text()
         secret_key = secret_key.text()
         try:
+            user = settings.new_user(
+                act_type=service_type,
+                access_key=key,
+                nickname=nickname,
+                region=region,
+                root=root,
+            )
             session = boto3.session.Session()
             client = session.client(
                 's3',
@@ -304,7 +312,7 @@ class LoginWindow(QDialog):
                 aws_access_key_id=key,
                 aws_secret_access_key=secret_key,
             )
-            item = S3Item(root, is_dir=True)
+            item = S3Item(user, is_dir=True)
             config = {
                 'Bucket': item.bucket,
                 'MaxKeys': 1_000,
@@ -335,13 +343,6 @@ class LoginWindow(QDialog):
             )
         else:
             # Keyring
-            user = settings.new_user(
-                act_type=service_type,
-                access_key=key,
-                nickname=nickname,
-                region=region,
-                root=root,
-            )
             settings.update_saved_users(user)
             keyring.set_password('system', f'_s3_{key}_secret_key', secret_key)
             self.accounts.append(user)

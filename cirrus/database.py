@@ -20,6 +20,7 @@ from PySide6.QtCore import (
 )
 from PySide6.QtWidgets import QWidget
 
+# TODO: This was mean to be tmp. Requires total rewrite
 # TODO: transfer_priroity_change
 # NOTE: `add` should really be `insert`
 
@@ -236,6 +237,7 @@ class DatabaseQueue(QObject):
 
     def __init__(self, *, parent=None, max_workers=10):
         super().__init__(parent)
+        self.users = list(settings.saved_users())
         self.workers = DatabaseWorkers()
         self.max_workers = 10
         self.con_thread_name = 'database_thread'
@@ -316,24 +318,54 @@ class DatabaseQueue(QObject):
                 while query.next():
                     pk = query.value(pk_idx)
                     size = query.value(size_idx)
-                    source = query.value(source_idx)
-                    source_item_type = items.types[
-                        query.value(source_type_idx).lower()
-                    ]
-                    source_item = source_item_type(source, size=size)
-                    destination = query.value(destination_idx)
-                    destination_item_type = items.types[
-                        query.value(destination_type_idx).lower()
-                    ]
-                    destination_item = destination_item_type(
-                        destination, size=size
+                    src = query.value(source_idx)
+                    src_act_type = query.value(source_type_idx).lower()
+                    # TODO: S3/DO will need the Access Key in the User
+                    #       Hmm...
+                    #       Maybe build a users_dict from settings
+                    #       check type --> root
+                    #       if not found, rebuild dict
+                    #       if not found again, raise error
+                    src_item_type = items.types[src_act_type]
+                    src_user = items.match_user(self.users, src_act_type, src)
+                    if not src_user:
+                        self.users = list(settings.saved_users())
+                        src_user = items.match_user(
+                            self.users, src_act_type, src
+                        )
+                        if not src_user:
+                            # TODO: Add these to the Error tab
+                            logging.warn(
+                                f'Could not find user for {src}. Skipping'
+                            )
+                            continue
+                    src_user['Root'] = src
+                    src_item = src_item_type(src_user, size=size)
+                    dst = query.value(destination_idx)
+                    dst_act_type = query.value(destination_type_idx).lower()
+                    dst_item_type = items.types[dst_act_type]
+                    dst_user = items.match_user(self.users, dst_act_type, dst)
+                    if not dst_user:
+                        self.users = list(settings.saved_users())
+                        dst_user = items.match_user(
+                            self.users, dst_act_type, dst
+                        )
+                        if not dst_user:
+                            # TODO: Add these to the Error tab
+                            logging.warn(
+                                f'Could not find user for {dst}. Skipping'
+                            )
+                            continue
+                    dst_user['Root'] = dst
+                    dst_item = dst_item_type(
+                        dst_user, size=size
                     )
                     priority = query.value(priority_idx)
                     priority = 3 if priority == 0 else priority
                     transfer_item = items.TransferItem(
                         pk,
-                        source_item,
-                        destination_item,
+                        src_item,
+                        dst_item,
                         size,
                         status=TransferStatus.QUEUED,
                         priority=TransferPriority(priority),

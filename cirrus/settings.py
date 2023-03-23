@@ -136,7 +136,7 @@ def update_saved_users(user):
         json.dump(data, f)
 
 
-def update_panel_by_index_cb(panel, index, key):
+def update_panel_by_index_cb(*, panel, index, key):
     def cb(value):
         panel[key] = value
         update_saved_panels_by_index(index, panel)
@@ -152,6 +152,7 @@ def new_user(
             region='',
             endpoint_url='',
         ):
+    # Need to re-think this name
     return {
         'Type': act_type,
         'Access Key': access_key,

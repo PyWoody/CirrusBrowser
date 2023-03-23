@@ -292,18 +292,7 @@ class LocalItem:
                     raise CallbackError('Callback failed') from e
 
 
-class S3Item:
-
-    __slots__ = (
-        'user',
-        'root',
-        'is_dir',
-        'collapsed',
-        'size',
-        'config',
-        'mtime',
-        'ctime'
-    )
+class BaseS3Item:
 
     def __init__(
         self, user, *, size=0, mtime=0, is_dir=False, collapsed=True
@@ -326,29 +315,8 @@ class S3Item:
                 f'is_dir={self.is_dir}, '
                 f'mtime={self.mtime})')
 
-    def setup_client(self, max_keys=1_000):
-        retry_config = Config(
-            retries={'max_attempts': 10, 'mode': 'standard'}
-        )
-        self.config = {
-                'Bucket': self.bucket,
-                'MaxKeys': max_keys,
-                'Delimiter': '/',
-            }
-        if self.space is not None:
-            self.config['Prefix'] = self.space
-        session = boto3.session.Session()
-        secret_key = keyring.get_password(
-            'system', f'_s3_{self.user["Access Key"]}_secret_key'
-        )
-        return session.client(
-                's3',
-                region_name=self.user['Region'],
-                endpoint_url=self.user['Endpoint URL'],
-                aws_access_key_id=self.user['Access Key'],
-                aws_secret_access_key=secret_key,
-                config=retry_config,
-            )
+    def setup_client(self, *args, **kwargs):
+        raise NotImplementedError('Must be specified in sub-class')
 
     @classmethod
     def create(cls, user, *, size=0, is_dir=False, collapsed=True):
@@ -372,10 +340,6 @@ class S3Item:
             is_dir=True if size == 0 else False,
             mtime=content.get('LastModified', 0),
         )
-
-    @property
-    def type(self):
-        return 's3'
 
     @property
     def bucket(self):
@@ -609,10 +573,101 @@ class S3Item:
             file_obj.error = e
 
 
+class S3Item(BaseS3Item):
+
+    __slots__ = (
+        'user',
+        'root',
+        'is_dir',
+        'collapsed',
+        'size',
+        'config',
+        'mtime',
+        'ctime'
+    )
+
+    @property
+    def type(self):
+        return 's3'
+
+    def setup_client(self, max_keys=1_000):
+        retry_config = Config(
+            retries={'max_attempts': 10, 'mode': 'standard'}
+        )
+        self.config = {
+                'Bucket': self.bucket,
+                'MaxKeys': max_keys,
+                'Delimiter': '/',
+            }
+        if self.space is not None:
+            self.config['Prefix'] = self.space
+        session = boto3.session.Session()
+        return session.client(
+                's3',
+                region_name=self.user['Region'],
+                aws_access_key_id=self.user['Access Key'],
+                aws_secret_access_key=keyring.get_password(
+                    'system', f'_s3_{self.user["Access Key"]}_secret_key'
+                ),
+                config=retry_config,
+            )
+
+
+class DigitalOceanItem(BaseS3Item):
+
+    __slots__ = (
+        'user',
+        'root',
+        'is_dir',
+        'collapsed',
+        'size',
+        'config',
+        'mtime',
+        'ctime'
+    )
+
+    @property
+    def type(self):
+        return 'digital ocean'
+
+    def setup_client(self, max_keys=1_000):
+        retry_config = Config(
+            retries={'max_attempts': 10, 'mode': 'standard'}
+        )
+        self.config = {
+                'Bucket': self.bucket,
+                'MaxKeys': max_keys,
+                'Delimiter': '/',
+            }
+        if self.space is not None:
+            self.config['Prefix'] = self.space
+        session = boto3.session.Session()
+        return session.client(
+                's3',
+                region_name=self.user['Region'],
+                endpoint_url=self.user['Endpoint URL'],
+                aws_access_key_id=self.user['Access Key'],
+                aws_secret_access_key=keyring.get_password(
+                    'system', f'_s3_{self.user["Access Key"]}_secret_key'
+                ),
+                config=retry_config,
+            )
+
+
 def new_user(user, root):
+    # Need to rethink this name
     _user = user.copy()
     _user['Root'] = root
     return _user
 
 
-types = {'local': LocalItem, 's3': S3Item}
+def match_user(users, act_type, root):
+    print(act_type, root)
+    for user in users:
+        if user['Type'].lower() == act_type.lower():
+            if len(os.path.commonprefix([user['Root'], root])) > 1:
+                _user = user.copy()
+                return _user
+
+
+types = {'local': LocalItem, 's3': S3Item, 'digital ocean': DigitalOceanItem}

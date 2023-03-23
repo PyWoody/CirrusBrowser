@@ -2,7 +2,11 @@ import os
 
 from cirrus import utils
 from cirrus.items import LocalItem
-from cirrus.models import LocalFileSystemModel, S3FilesTreeModel
+from cirrus.models import (
+    DigitalOceanFilesTreeModel,
+    LocalFileSystemModel,
+    S3FilesTreeModel
+)
 from cirrus.validators import LocalPathValidator
 
 from PySide6.QtCore import (
@@ -189,27 +193,7 @@ class LocalFileListing(FileListingTreeView):
         super().selectionChanged(selected, deselected)
 
 
-class S3FileListing(FileListingTreeView):
-
-    def __init__(self, user, parent=None):
-        super().__init__(parent)
-        user = user.copy()
-        if not user['Root'].startswith('/'):
-            user['Root'] = '/' + user['Root']
-        self.root = user['Root']
-        self.user = user
-        self.location_bar = None
-        self.status_bar = None
-        model = S3FilesTreeModel(user=self.user)
-        self.setModel(model)
-        self.setup_header()
-        self.doubleClicked.connect(self.item_double_clicked)
-        self.collapsed.connect(self.model().view_collapsed)
-        self.expanded.connect(self.model().view_expanded)
-
-    @property
-    def type(self):
-        return 's3'
+class BaseS3FileListing:
 
     def create_location_bar(self, window_type='S3'):
         self.location_bar = QLineEdit()
@@ -283,14 +267,6 @@ class S3FileListing(FileListingTreeView):
         self.status_bar_change.emit(output)
         super().selectionChanged(selected, deselected)
 
-    def refresh(self):
-        self.collapsed.disconnect()
-        self.expanded.disconnect()
-        model = S3FilesTreeModel(user=self.user)
-        self.setModel(model)
-        self.collapsed.connect(self.model().view_collapsed)
-        self.expanded.connect(self.model().view_expanded)
-
     @Slot()
     def change_dir(self):
         # TODO: This is slow in the view. Use the main status_bar
@@ -309,3 +285,65 @@ class S3FileListing(FileListingTreeView):
     @Slot(str)
     def update_status_bar(self, status):
         self.status_bar.setText(status)
+
+
+class S3FileListing(BaseS3FileListing, FileListingTreeView):
+
+    def __init__(self, user, parent=None):
+        super().__init__(parent)
+        user = user.copy()
+        if not user['Root'].startswith('/'):
+            user['Root'] = '/' + user['Root']
+        self.root = user['Root']
+        self.user = user
+        self.location_bar = None
+        self.status_bar = None
+        model = S3FilesTreeModel(user=self.user)
+        self.setModel(model)
+        self.setup_header()
+        self.doubleClicked.connect(self.item_double_clicked)
+        self.collapsed.connect(self.model().view_collapsed)
+        self.expanded.connect(self.model().view_expanded)
+
+    @property
+    def type(self):
+        return 's3'
+
+    def refresh(self):
+        self.collapsed.disconnect()
+        self.expanded.disconnect()
+        model = S3FilesTreeModel(user=self.user)
+        self.setModel(model)
+        self.collapsed.connect(self.model().view_collapsed)
+        self.expanded.connect(self.model().view_expanded)
+
+
+class DigitalOceanFileListing(BaseS3FileListing, FileListingTreeView):
+
+    def __init__(self, user, parent=None):
+        super().__init__(parent)
+        user = user.copy()
+        if not user['Root'].startswith('/'):
+            user['Root'] = '/' + user['Root']
+        self.root = user['Root']
+        self.user = user
+        self.location_bar = None
+        self.status_bar = None
+        model = DigitalOceanFilesTreeModel(user=self.user)
+        self.setModel(model)
+        self.setup_header()
+        self.doubleClicked.connect(self.item_double_clicked)
+        self.collapsed.connect(self.model().view_collapsed)
+        self.expanded.connect(self.model().view_expanded)
+
+    @property
+    def type(self):
+        return 'digital ocean'
+
+    def refresh(self):
+        self.collapsed.disconnect()
+        self.expanded.disconnect()
+        model = DigitalOceanFilesTreeModel(user=self.user)
+        self.setModel(model)
+        self.collapsed.connect(self.model().view_collapsed)
+        self.expanded.connect(self.model().view_expanded)
