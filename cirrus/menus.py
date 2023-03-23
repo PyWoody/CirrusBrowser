@@ -2,8 +2,10 @@ from cirrus import actions
 
 # TODO: Add a top-level Filter or Advanced action to each sub menu
 
+
 def transfer_listing_menu(menu, parent, pks):
     menu.addAction(actions.transfers.DropRowsAction(parent, pks))
+
 
 def file_listing_menu(menu, parent, files, folders, panels):
     destinations = sorted(

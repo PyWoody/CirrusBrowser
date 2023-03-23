@@ -19,7 +19,7 @@ class CheckBoxDelegate(QItemDelegate):
         else:
             status = Qt.Unchecked
         self.drawCheck(painter, option, option.rect, status)
-        self.drawFocus(painter, option, option.rect) 
+        self.drawFocus(painter, option, option.rect)
 
 
 class ProgressBarDelegate(QStyledItemDelegate):

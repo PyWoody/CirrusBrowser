@@ -52,7 +52,7 @@ class LoginWindow(QDialog):
         layout = QVBoxLayout()
         if users := list(settings.saved_users()):
             for user in users:
-                account_selection  = AccountLabel(user)
+                account_selection = AccountLabel(user)
                 account_selection.clicked.connect(
                     partial(self.accounts.append, user)
                 )
@@ -225,7 +225,7 @@ class LoginWindow(QDialog):
             root,
             key,
             secret_key,
-        ):
+    ):
         nickname = nickname.text()
         region = region_name.text()
         endpoint = endpoint_url.text()
@@ -276,7 +276,7 @@ class LoginWindow(QDialog):
             # Keyring
             user = settings.new_user(
                 act_type=service_type,
-                access_key= key,
+                access_key=key,
                 nickname=nickname,
                 region=region,
                 endpoint_url=endpoint,
@@ -345,7 +345,6 @@ def endpoint_handler(label, url):
     def updater(text):
         label.setText(url.format(text))
     return updater
-
 
 
 if __name__ == '__main__':

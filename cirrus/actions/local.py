@@ -156,6 +156,7 @@ class CopyFilesAction(QAction):
             self.root, self.files, self.destination, process=True
         )
 
+
 class QueueFilesAction(QAction):
 
     def __init__(self, parent, files, destination):
@@ -222,7 +223,8 @@ class QueueMixedItemsAction(QAction):
         self.setText(f'Selection >> {self.destination}')
         self.setStatusTip(
             f'Add the selected Folder{plural_folder} '
-            f'and File{plural_file} to the download queue to {self.destination}'
+            f'and File{plural_file} to the download '
+            f'queue to {self.destination}'
         )
 
     def runnable(self):
@@ -252,7 +254,7 @@ class FolderRunnable(QRunnable):
         for root, dirs, files in os.walk(self.root):
             destination = os.path.abspath(
                 os.path.join(
-                    self.destination, 
+                    self.destination,
                     os.path.relpath(root, start=self.root)
                 )
             )
@@ -291,7 +293,9 @@ class FolderRunnable(QRunnable):
         self.signals.select.emit()
         if self.process:
             self.signals.process_queue.emit()
-        self.signals.finished.emit(f'Testing - {self.root} - FOLDERS - FINISHED')
+        self.signals.finished.emit(
+            f'Testing - {self.root} - FOLDERS - FINISHED'
+        )
         con.close()
 
     def __del__(self):
@@ -322,7 +326,7 @@ class FoldersRunnable(QRunnable):
             for root, dirs, files in os.walk(root_item.root):
                 destination = os.path.abspath(
                     os.path.join(
-                        self.destination, 
+                        self.destination,
                         os.path.relpath(root, start=self.root)
                     )
                 )
@@ -363,7 +367,9 @@ class FoldersRunnable(QRunnable):
         self.signals.select.emit()
         if self.process:
             self.signals.process_queue.emit()
-        self.signals.finished.emit(f'Testing - {self.root} - FOLDERS - FINISHED')
+        self.signals.finished.emit(
+            f'Testing - {self.root} - FOLDERS - FINISHED'
+        )
         con.close()
 
     def __del__(self):
@@ -402,7 +408,7 @@ class MixedItemsRunnable(QRunnable):
             for root, dirs, files in os.walk(root_item.root):
                 destination = os.path.abspath(
                     os.path.join(
-                        self.destination, 
+                        self.destination,
                         os.path.relpath(root, start=self.root)
                     )
                 )
@@ -477,5 +483,3 @@ class FilesRunnable(QRunnable):
 
     def __del__(self):
         QSqlDatabase.removeDatabase(self._id)
-
-

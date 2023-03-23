@@ -208,7 +208,7 @@ class LocalItem:
             for f in files:
                 fname = os.path.join(root, f)
                 if os.path.isfile(fname):
-                    _uer = new_user(self.user, fname)
+                    _user = new_user(self.user, fname)
                     size = os.stat(fname).st_size
                     item = self.create(_user, size=size)
                     file_items.append(item)
@@ -507,7 +507,9 @@ class S3Item:
             while True:
                 chunk = yield written_amount
                 if err := file_obj.error:
-                    logging.info(f'Propogating error ({str(err)}) from {file_obj!r}')
+                    logging.info(
+                        f'Propogating error ({str(err)}) from {file_obj!r}'
+                    )
                     raise err
                 elif chunk is None:
                     written_amount = file_obj.write(data)

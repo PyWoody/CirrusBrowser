@@ -29,7 +29,7 @@ class SearchResultsWindow(QMainWindow):
     def closeEvent(self, event):
         self.closed.emit()
         super().closeEvent(event)
-        
+
     @Slot(QItemSelection, QItemSelection)
     def selectionChanged(self, selected, deselected):
         pass

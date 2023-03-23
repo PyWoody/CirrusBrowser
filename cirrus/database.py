@@ -325,7 +325,9 @@ class DatabaseQueue(QObject):
                     destination_item_type = items.types[
                         query.value(destination_type_idx).lower()
                     ]
-                    destination_item = destination_item_type(destination, size=size)
+                    destination_item = destination_item_type(
+                        destination, size=size
+                    )
                     priority = query.value(priority_idx)
                     priority = 3 if priority == 0 else priority
                     transfer_item = items.TransferItem(
@@ -501,6 +503,7 @@ def drop_rows(*, pks, con_name='con'):
         critical_msg('add_transfers E', str(e))
         con.rollback()
         return False
+
 
 @db_logger
 def add_transfers(*, items, destination, s_type, d_type, con_name='con'):
@@ -843,6 +846,7 @@ def restart_queued_transfer(item, con_name='con'):
         critical_msg('restart_queued_transfer E', str(e))
         con.rollback()
         return False
+
 
 def critical_msg(source, msg, parent=None):
     # This sould require a parent for blocking

@@ -13,5 +13,3 @@ class ActionSignals(QObject):
     select = Signal()
     started = Signal(str)
     update = Signal(str)
-
-

@@ -99,7 +99,7 @@ class TransfersTableModel(QSqlTableModel):
     def fetchMore(self, parent=QModelIndex()):
         if parent.isValid():
             return
-        current_rows =  self.rowCount(parent)
+        current_rows = self.rowCount(parent)
         super().fetchMore(parent)
         self.beginInsertRows(parent, current_rows, self.rowCount(parent) - 1)
         self.endInsertRows()
@@ -493,7 +493,6 @@ class SearchResultsModel(QStandardItemModel):
         if not len(self.rowCount()):
             self.root.appendRow(QStandardItem('No results found.'))
 
-
     @Slot(object)
     def add_result(self, item):
         if not self.__stopped:
@@ -502,7 +501,9 @@ class SearchResultsModel(QStandardItemModel):
                 out_items.append(QStandardItem(item.root))
                 out_items.append(QStandardItem(str(item.size)))
                 if item.mtime:
-                    out_items.append(QStandardItem(utils.date.to_iso(item.mtime)))
+                    out_items.append(
+                        QStandardItem(utils.date.to_iso(item.mtime))
+                    )
                 else:
                     out_items.append(QStandardItem())
                 out_items[0].setData(item)

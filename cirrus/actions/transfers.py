@@ -7,6 +7,7 @@ from PySide6.QtGui import QAction
 from PySide6.QtCore import QRunnable
 from PySide6.QtSql import QSqlDatabase
 
+
 class DropRowsAction(QAction):
 
     def __init__(self, parent, indexes):

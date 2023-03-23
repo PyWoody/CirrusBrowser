@@ -65,7 +65,9 @@ class CentralWidgetWindow(QWidget):  # Terrible name
         # Executor
         self.current_transfers = set()
         self.max_workers = 10  # will be an input
-        self.executor = Executor(self.database_queue, max_workers=self.max_workers)
+        self.executor = Executor(
+            self.database_queue, max_workers=self.max_workers
+        )
         self.executor.started.connect(
             self.transfers_window.attach_transfer_item
         )
@@ -300,7 +302,8 @@ class CentralWidgetWindow(QWidget):  # Terrible name
                     )
                 )
                 logging.debug(
-                    f'dataChanged emitted for {len(self.current_transfers)} rows'
+                    ('dataChanged emitted for '
+                     f'{len(self.current_transfers)} rows')
                 )
 
     @Slot(TransferItem)
@@ -323,7 +326,7 @@ class CentralWidgetWindow(QWidget):  # Terrible name
         if self.__started_transfers_to_update:
             logging.debug(
                 (f'Sending {len(self.__started_transfers_to_update)} '
-                  'items to `database.started_batch_update`')
+                 'items to `database.started_batch_update`')
             )
             response = database.started_batch_update(
                 self.__started_transfers_to_update
@@ -331,23 +334,23 @@ class CentralWidgetWindow(QWidget):  # Terrible name
             if not response:
                 logging.warn(
                     ('Failed to send '
-                    f'{len(self.__started_transfers_to_update)} '
+                     f'{len(self.__started_transfers_to_update)} '
                      'items to `database.started_batch_update`')
                 )
             logging.debug(
                 (f'Sent {len(self.__started_transfers_to_update)} '
-                  'items to `database.started_batch_update`')
+                 'items to `database.started_batch_update`')
             )
             logging.debug(
                 (f'Selecting {len(self.__started_transfers_to_update)} '
-                  'started rows')
+                 'started rows')
             )
             self.transfers_window.select_started_rows(
                 self.__started_transfers_to_update
             )
             logging.debug(
                 (f'Selected {len(self.__started_transfers_to_update)} '
-                  'started rows')
+                 'started rows')
             )
             self.__started_transfers_to_update.clear()
 
@@ -357,7 +360,7 @@ class CentralWidgetWindow(QWidget):  # Terrible name
             output.extend(self.__error_transfers_to_update)
             logging.debug(
                 (f'Sending {len(self.__error_transfers_to_update)} '
-                  'to `database.error_batch_update`')
+                 'to `database.error_batch_update`')
             )
             response = database.error_batch_update(
                 self.__error_transfers_to_update
@@ -365,12 +368,12 @@ class CentralWidgetWindow(QWidget):  # Terrible name
             if not response:
                 logging.warn(
                     ('Failed to send '
-                    f'{len(self.__error_transfers_to_update)} '
+                     f'{len(self.__error_transfers_to_update)} '
                      'to `database.error_batch_update`')
                 )
             logging.debug(
                 (f'Sent {len(self.__error_transfers_to_update)} '
-                  'to `database.error_batch_update`')
+                 'to `database.error_batch_update`')
             )
             output.extend(self.__error_transfers_to_update)
             self.__error_transfers_to_update.clear()
@@ -378,7 +381,7 @@ class CentralWidgetWindow(QWidget):  # Terrible name
             output.extend(self.__completed_transfers_to_update)
             logging.debug(
                 (f'Sending {len(self.__completed_transfers_to_update)} '
-                  'to `database.completed_batch_update`')
+                 'to `database.completed_batch_update`')
             )
             response = database.completed_batch_update(
                 self.__completed_transfers_to_update
@@ -386,12 +389,12 @@ class CentralWidgetWindow(QWidget):  # Terrible name
             if not response:
                 logging.warn(
                     ('Failed to send '
-                    f'{len(self.__completed_transfers_to_update)} '
+                     f'{len(self.__completed_transfers_to_update)} '
                      'to `database.completed_batch_update`')
                 )
             logging.debug(
                 (f'Sent {len(self.__completed_transfers_to_update)} '
-                  'to `database.completed_batch_update`')
+                 'to `database.completed_batch_update`')
             )
             output.extend(self.__completed_transfers_to_update)
             self.__completed_transfers_to_update.clear()

@@ -46,7 +46,9 @@ class QueueFilesRunnable(QRunnable):
         con.setDatabaseName(settings.DATABASE)
         if not con.open():
             raise exceptions.DatabaseClosedException
-        # database.add_transfers(self.files, self.destination, con_name=self._id)
+        # database.add_transfers(
+        #     self.files, self.destination, con_name=self._id
+        # )
         print(self.files, self.destination, self._id)
         self.signals.select.emit()
         self.signals.finished.emit(f'Testing - {self.root} - FINISHED')
@@ -96,7 +98,7 @@ class QueueFoldersRunnable(QRunnable):
             for root, dirs, files in os.walk(root_item.root):
                 destination = os.path.abspath(
                     os.path.join(
-                        self.destination, 
+                        self.destination,
                         os.path.relpath(root, start=self.root)
                     )
                 )
@@ -135,10 +137,10 @@ class QueueFoldersRunnable(QRunnable):
         self.signals.select.emit()
         '''
         print('DONE')
-        self.signals.finished.emit(f'Testing - {self.root} - FOLDERS - FINISHED')
+        self.signals.finished.emit(
+            f'Testing - {self.root} - FOLDERS - FINISHED'
+        )
         con.close()
 
     def __del__(self):
         QSqlDatabase.removeDatabase(self._id)
-
-

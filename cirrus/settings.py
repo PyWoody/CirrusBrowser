@@ -127,14 +127,14 @@ def update_panel_by_index_cb(panel, index, key):
 
 
 def new_user(
-        *,
-        act_type,
-        root,
-        access_key='N/A',
-        nickname='',
-        region='',
-        endpoint_url='',
-    ):
+            *,
+            act_type,
+            root,
+            access_key='N/A',
+            nickname='',
+            region='',
+            endpoint_url='',
+        ):
     return {
         'Type': act_type,
         'Access Key': access_key,

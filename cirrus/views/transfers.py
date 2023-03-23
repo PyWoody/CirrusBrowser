@@ -48,7 +48,7 @@ class TransfersDatabaseTreeView(QTreeView):
         pk_col = 0
         source_col = 1
         destination_col = 2
-        progress_col = 3
+        # progress_col = 3
         priority_col = 6
         status_col = 7
         end_time_col = 9
@@ -79,7 +79,9 @@ class TransfersDatabaseTreeView(QTreeView):
                 selected_indexes.append(index)
                 prev_row = row
         if selected_indexes:
-            self.context_selections.emit(self, event.globalPos(), selected_indexes)
+            self.context_selections.emit(
+                self, event.globalPos(), selected_indexes
+            )
 
 
 class ResultsDatabaseTreeView(QTreeView):

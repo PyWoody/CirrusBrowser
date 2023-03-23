@@ -258,7 +258,7 @@ class TransferFilterRunnable(BaseRunnable):
                         os.path.join(
                             self.destination.root,
                             os.path.relpath(
-                                os.path.dirname(result.root), 
+                                os.path.dirname(result.root),
                                 start=self.parent.root
                             )
                         )

@@ -74,7 +74,7 @@ class TransfersWindow(QWidget):
         layout = QVBoxLayout()
         layout.addWidget(self.tabs)
         self.setLayout(layout)
-    
+
     @Slot(object, object, set)
     def transfers_context_menu(self, parent, pos, indexes):
         menu = QMenu(parent)

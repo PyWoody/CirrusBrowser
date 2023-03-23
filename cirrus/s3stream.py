@@ -161,7 +161,7 @@ class S3StreamingUpload(BaseS3StreamingObject):
     def read(self, n, *args, **kwargs):
         """
         Reads the maximum number number of n-bytes, starting from the current
-        seek position. 
+        seek position.
 
         Does not self-prune the internal data object. You must add
         `S3StreamingUpload.prune` to the Callback function in upload_fileobj
@@ -229,10 +229,10 @@ class S3StreamingDownload(BaseS3StreamingObject):
     def read(self, n, *args, **kwargs):
         """
         Reads the maximum number number of n-bytes, starting from the current
-        seek position. 
+        seek position.
 
 
-        Will self prune the internal data object. Do not add 
+        Will self prune the internal data object. Do not add
         `S3StreamingDownload.prune` to the download_fileobj Callback
 
         :type n: int

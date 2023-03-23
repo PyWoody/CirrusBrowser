@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
 
 # TODO: Standard overwite/compare/skip dialog
 
+
 class ConfirmDeleteDialog(QDialog):
 
     def __init__(self, parent=None):
@@ -148,7 +149,7 @@ class CreateDirectoryDialog(QDialog):
 class SearchItemsDialog(QDialog):
 
     # TODO: Searches for downloading, uploading, searching
-    # TODO: Files, Files and Dirs, Dirs 
+    # TODO: Files, Files and Dirs, Dirs
 
     def __init__(self, *, parent=None, folders=None):
         super().__init__(parent)
