@@ -85,6 +85,9 @@ class CentralWidgetWindow(QWidget):  # Terrible name
             partial(self.transfers_start_btn.setDisabled, True)
         )
 
+        self.transfers_toggle_btn = QPushButton('Show Transfers')
+        self.transfers_toggle_btn.clicked.connect(self.toggle_transfer_widnow)
+
         self.transfers_stop_btn = QPushButton('Stop Transfers')
         self.transfers_stop_btn.setDisabled(True)
         self.transfers_stop_btn.clicked.connect(self.executor.stop)
@@ -139,6 +142,7 @@ class CentralWidgetWindow(QWidget):  # Terrible name
         btn_layout = QHBoxLayout()
         btn_layout.addWidget(self.transfers_start_btn)
         btn_layout.addWidget(self.transfers_stop_btn)
+        btn_layout.addWidget(self.transfers_toggle_btn)
         btn_layout.addWidget(self.add_panel_btn)
         btn_layout.addWidget(self.remove_panel_btn)
         layout.addLayout(btn_layout)
@@ -171,6 +175,7 @@ class CentralWidgetWindow(QWidget):  # Terrible name
         menu.popup(pos)
 
     def menu_item_selected(self, action):
+        # TODO: Move away from exec. Transition to setModal
         if action.exec():
             widget = self.transfers_window.tabs.currentWidget()
             runnable = action.runnable()
@@ -305,6 +310,15 @@ class CentralWidgetWindow(QWidget):  # Terrible name
                     ('dataChanged emitted for '
                      f'{len(self.current_transfers)} rows')
                 )
+
+    @Slot()
+    def toggle_transfer_widnow(self):
+        if self.transfers_toggle_btn.text() == 'Show Transfers':
+            self.transfers_toggle_btn.setText('Hide Transfers')
+            self.transfers_window.show()
+        else:
+            self.transfers_toggle_btn.setText('Show Transfers')
+            self.transfers_window.hide()
 
     @Slot(TransferItem)
     def transfer_started(self, item):
