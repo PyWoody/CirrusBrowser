@@ -9,6 +9,23 @@ DATABASE = os.path.join(ROOT, 'transfers.db')
 LOG = os.path.join(ROOT, 'logs', 'cirrus.log')
 
 
+def transfer_window_visible():
+    if os.path.isfile(SETUP):
+        data = json.load(open(SETUP, 'r', encoding='utf8'))
+        return data.get('Show Transer Window', False)
+    return False
+
+
+def update_transfer_window_status(status):
+    if os.path.isfile(SETUP):
+        data = json.load(open(SETUP, 'r', encoding='utf8'))
+    else:
+        data = dict()
+    data['Show Transer Window'] = bool(status)
+    with open(SETUP, 'w', encoding='utf8') as f:
+        json.dump(data, f)
+
+
 def append_panel(panel):
     if os.path.isfile(SETUP):
         data = json.load(open(SETUP, 'r', encoding='utf8'))

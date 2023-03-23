@@ -51,7 +51,10 @@ class CentralWidgetWindow(QWidget):  # Terrible name
         self.transfers_window = TransfersWindow(
             database_queue=self.database_queue
         )
-        self.transfers_window.hide()
+        if settings.transfer_window_visible():
+            self.transfers_window.show()
+        else:
+            self.transfers_window.hide()
         self.database_queue.completed.connect(
             self.transfers_window.transfers.model().select
         )
@@ -85,7 +88,11 @@ class CentralWidgetWindow(QWidget):  # Terrible name
             partial(self.transfers_start_btn.setDisabled, True)
         )
 
-        self.transfers_toggle_btn = QPushButton('Show Transfers')
+        self.transfers_toggle_btn = QPushButton()
+        if self.transfers_window.isHidden():
+            self.transfers_toggle_btn.setText('Show Transfers')
+        else:
+            self.transfers_toggle_btn.setText('Hide Transfers')
         self.transfers_toggle_btn.clicked.connect(self.toggle_transfer_widnow)
 
         self.transfers_stop_btn = QPushButton('Stop Transfers')
@@ -316,9 +323,11 @@ class CentralWidgetWindow(QWidget):  # Terrible name
         if self.transfers_toggle_btn.text() == 'Show Transfers':
             self.transfers_toggle_btn.setText('Hide Transfers')
             self.transfers_window.show()
+            settings.update_transfer_window_status(True)
         else:
             self.transfers_toggle_btn.setText('Show Transfers')
             self.transfers_window.hide()
+            settings.update_transfer_window_status(False)
 
     @Slot(TransferItem)
     def transfer_started(self, item):
