@@ -16,19 +16,18 @@
 ## Progress:
 ### GUI
  - [ ] Main Window
- - [ ] Encrypted Login/Credentials
+ - [X] Encrypted Login/Credentials
  - [ ] Transfers Window
  - [ ] Settings Window
  - [ ] Basic Search Window
  - [ ] Quick Search Window
- - [ ] Advanced Search Window
+ - [X] Advanced Search Window
  - [ ] History Window
- - [ ] Shared Event Pooling w/ Hierarchy
 
 ### CLI
  - [ ] Basic functionality
- - [ ] Verbose setting
- - [ ] Expressive GUI w/ Rich (no TUI)
+ - [ ] Verbose
+ - [ ] Expressive GUI w/ Rich
  - [ ] Restartable and idempotent queues
 
 ### Thread Class
@@ -75,15 +74,9 @@
 - [ ] Recursively change file attributes/permissions via rules and filters
 
 ---
-## TODO:
-- Add logging to everything
-
----
-## Wishlist/Notes/Ideas:
+## Ideas:
 - Expressive status bar that allows canceling actions
 - Reuse and update the StatsQueue from the aCDNBrowser
 - Built-in egress cost calculator with programmable warnings for S3 types
 - Exportable transfer/actions tracking for records, convenience, sharing, etc.
     i.e., csv, sqlite, xlsx
-- Pickling on close. Encrypted pickles via password hash
-    may want to make an encrypted archive of pickles, configs, etc.
