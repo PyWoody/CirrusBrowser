@@ -61,7 +61,7 @@ class LoginWindow(QDialog):
         layout.addWidget(HLine())
         layout.addWidget(QLabel('Add New Account'))
         services = [
-            ('S3 (Not Implemented (sort of))', self.s3_login),
+            ('S3', self.s3_login),
             ('Digital Ocean', self.do_login),
             ('DropBox (Not Implemented)', self.dropbox_login),
             ('SSH (Not Implemented)', self.ssh_login),
@@ -105,7 +105,6 @@ class LoginWindow(QDialog):
         layout = QVBoxLayout()
         nickname_edit = QLineEdit(nickname)
         region_edit = QLineEdit()
-        endpoint_edit = QLineEdit()
         root_edit = QLineEdit()
         root_updater = root_handler(root_edit)
         root_edit.textChanged.connect(root_updater)
@@ -115,10 +114,9 @@ class LoginWindow(QDialog):
         form = QFormLayout()
         form.addRow('Nickname', nickname_edit)
         form.addRow('Region Name', region_edit)
-        form.addRow('Endpoint URL', endpoint_edit)
         form.addRow('Root', root_edit)
         form.addRow('Acecss Key', key_edit)
-        form.addRow('Secret Access Key', secret_key_edit)
+        form.addRow('Secret Access Key*', secret_key_edit)
         btn_layout = QHBoxLayout()
         login_btn = QPushButton('Login')
         login_partial = partial(
@@ -126,14 +124,12 @@ class LoginWindow(QDialog):
             'Amazon S3',
             nickname_edit,
             region_edit,
-            endpoint_edit,
             root_edit,
             key_edit,
             secret_key_edit,
         )
         login_btn.clicked.connect(login_partial)
         region_edit.returnPressed.connect(login_partial)
-        endpoint_edit.returnPressed.connect(login_partial)
         key_edit.returnPressed.connect(login_partial)
         secret_key_edit.returnPressed.connect(login_partial)
         cancel_btn = QPushButton('Cancel')
@@ -172,7 +168,7 @@ class LoginWindow(QDialog):
         btn_layout = QHBoxLayout()
         login_btn = QPushButton('Login')
         login_partial = partial(
-            self.test_s3_credentials,
+            self.test_do_credentials,
             'Digital Ocean',
             nickname_edit,
             region_edit,
@@ -216,7 +212,7 @@ class LoginWindow(QDialog):
         widget.setLayout(layout)
         return widget
 
-    def test_s3_credentials(
+    def test_do_credentials(
             self,
             service_type,
             nickname,
@@ -237,7 +233,6 @@ class LoginWindow(QDialog):
             client = session.client(
                 's3',
                 region_name=region,
-                endpoint_url=endpoint,
                 aws_access_key_id=key,
                 aws_secret_access_key=secret_key,
             )
@@ -252,19 +247,85 @@ class LoginWindow(QDialog):
             _ = client.list_objects_v2(**config)
         except ValueError as e:
             # Alert
-            msg = f'Error: {str(e)}'
+            msg = f'<b>Error:</b> {str(e)}'
             msg += '\n'
-            msg += 'Information Receieved:'
+            msg += '<b>Information Receieved:</b>'
             msg += '\n\t'
-            msg += f'region_name: {region}'
+            msg += f'<b>region_name:</b> {region}'
             msg += '\n\t'
-            msg += f'endpoint_url: {endpoint}'
+            msg += f'<b>endpoint_url:</b> {endpoint}'
             msg += '\n\t'
-            msg += f'root: {root}'
+            msg += f'<b>root:</b> {root}'
             msg += '\n\t'
-            msg += f'aws_access_key_id: {key}'
+            msg += f'<b>aws_access_key_id:</b> {key}'
+            msg += '\n\t'
+            msg += '<b>aws_secret_access_key_id:</b> (protected)'
             msg += '\n'
-            msg += 'aws_secret_access_key_id: (protected)'
+            QMessageBox.critical(
+                self,
+                'Digitial Ocean Client Error',
+                msg,
+                defaultButton=QMessageBox.NoButton,
+            )
+        else:
+            # Keyring
+            user = settings.new_user(
+                act_type=service_type,
+                access_key=key,
+                nickname=nickname,
+                region=region,
+                endpoint_url=endpoint,
+                root=root,
+            )
+            settings.update_saved_users(user)
+            keyring.set_password('system', f'_s3_{key}_secret_key', secret_key)
+            self.accounts.append(user)
+            self.close()
+
+    def test_s3_credentials(
+            self,
+            service_type,
+            nickname,
+            region_name,
+            root,
+            key,
+            secret_key,
+    ):
+        nickname = nickname.text()
+        region = region_name.text()
+        root = root.text()
+        key = key.text()
+        secret_key = secret_key.text()
+        try:
+            session = boto3.session.Session()
+            client = session.client(
+                's3',
+                region_name=region,
+                aws_access_key_id=key,
+                aws_secret_access_key=secret_key,
+            )
+            item = S3Item(root, is_dir=True)
+            config = {
+                'Bucket': item.bucket,
+                'MaxKeys': 1_000,
+                'Delimiter': '/',
+            }
+            if item.space:
+                config['Prefix'] = item.space
+            _ = client.list_objects_v2(**config)
+        except ValueError as e:
+            # Alert
+            msg = f'<b>Error:</b> {str(e)}'
+            msg += '\n'
+            msg += '<b>Information Receieved:</b>'
+            msg += '\n\t'
+            msg += f'<b>region_name:</b> {region}'
+            msg += '\n\t'
+            msg += f'<b>root:</b> {root}'
+            msg += '\n\t'
+            msg += f'<b>aws_access_key_id:</b> {key}'
+            msg += '\n\t'
+            msg += '<b>aws_secret_access_key_id:</b> (protected)'
             msg += '\n'
             QMessageBox.critical(
                 self,
@@ -279,7 +340,6 @@ class LoginWindow(QDialog):
                 access_key=key,
                 nickname=nickname,
                 region=region,
-                endpoint_url=endpoint,
                 root=root,
             )
             settings.update_saved_users(user)
