@@ -4,7 +4,7 @@ import threading
 
 class BaseS3StreamingObject(io.BytesIO):
 
-    def __init__(self, file_size, buffer_size):
+    def __init__(self, file_size, buffer_size=None):
         if buffer_size is None:
             buffer_size = 8 * (1024 * 1024)
         self.buffer_size = buffer_size
@@ -126,7 +126,7 @@ class BaseS3StreamingObject(io.BytesIO):
                 self.can_write_event.set()
             if len(self.data) == 0:
                 if self.processed == self.file_size:
-                    # Release the final read to end it
+                    # Release the final read for b''
                     self.can_read_event.set()
                 else:
                     self.can_read_event.clear()
@@ -154,9 +154,6 @@ class S3StreamingUpload(BaseS3StreamingObject):
     :type: buffer_size: int, None
     :param: buffer_size: The maximum buffer size to use in memory
     """
-
-    def __init__(self, file_size, buffer_size=None):
-        super().__init__(file_size, buffer_size)
 
     def read(self, n, *args, **kwargs):
         """
@@ -223,14 +220,10 @@ class S3StreamingDownload(BaseS3StreamingObject):
     :param: buffer_size: The maximum buffer size to use in memory
     """
 
-    def __init__(self, file_size, buffer_size=None):
-        super().__init__(file_size, buffer_size)
-
     def read(self, n, *args, **kwargs):
         """
         Reads the maximum number number of n-bytes, starting from the current
         seek position.
-
 
         Will self prune the internal data object. Do not add
         `S3StreamingDownload.prune` to the download_fileobj Callback
