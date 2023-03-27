@@ -6,15 +6,9 @@ from functools import partial
 
 from .login import LoginWindow
 from .transfers import TransfersWindow
-from cirrus import database, menus, settings, utils
+from cirrus import database, items, menus, settings, utils, views
 from cirrus.executor import Executor
-from cirrus.items import TransferItem
 from cirrus.statuses import TransferStatus
-from cirrus.views.listings import (
-    DigitalOceanFileListing,
-    LocalFileListing,
-    S3FileListing,
-)
 
 from PySide6.QtCore import (
     Qt,
@@ -239,12 +233,7 @@ class CentralWidgetWindow(QWidget):  # Terrible name
             self.add_splitter_panel(account)
 
     def add_splitter_panel(self, account, existing_panel=False):
-        listing_types = {
-            'local': LocalFileListing,
-            's3': S3FileListing,
-            'digital ocean': DigitalOceanFileListing,
-        }
-        if listing := listing_types.get(account['Type'].lower()):
+        if listing := views.types.get(account['Type'].lower()):
             view = listing(account)
         else:
             logging.warn(f'No valid Type found for {account}')
@@ -335,13 +324,13 @@ class CentralWidgetWindow(QWidget):  # Terrible name
             self.transfers_window.hide()
             settings.update_transfer_window_status(False)
 
-    @Slot(TransferItem)
+    @Slot(items.TransferItem)
     def transfer_started(self, item):
         self.num_current_transfers += 1
         self.__started_transfers_to_update.append(item)
         self.current_transfers.add(item)
 
-    @Slot(TransferItem)
+    @Slot(items.TransferItem)
     def transfer_finished(self, item):
         self.num_current_transfers -= 1
         if item in self.current_transfers:

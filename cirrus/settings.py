@@ -4,8 +4,9 @@ import os
 
 
 ROOT = os.path.abspath(os.path.dirname(__file__))
-SETUP = os.path.join(ROOT, 'setup.json')
-DATABASE = os.path.join(ROOT, 'transfers.db')
+DATA_DIR = os.path.join(ROOT, 'data')
+SETUP = os.path.join(DATA_DIR, 'setup.json')
+DATABASE = os.path.join(DATA_DIR, 'transfers.db')
 LOG = os.path.join(ROOT, 'logs', 'cirrus.log')
 
 

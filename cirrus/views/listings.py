@@ -193,7 +193,14 @@ class LocalFileListing(FileListingTreeView):
         super().selectionChanged(selected, deselected)
 
 
-class BaseS3FileListing:
+class BaseS3FileListing(FileListingTreeView):
+
+    def __init__(self, parent=None):
+        super().__init__(parent)  # Continues the super chain
+        self.location_bar = None
+        self.status_bar = None
+        self.user = None
+        self.root = None
 
     def create_location_bar(self, window_type='S3'):
         self.location_bar = QLineEdit()
@@ -213,6 +220,11 @@ class BaseS3FileListing:
         self.status_bar = QLabel()
         self.status_bar_change.connect(self.update_status_bar)
         return self.status_bar
+
+    def create_action_bar(self):
+        # self.action_bar = None
+        # layout = QHBoxLayout()
+        pass
 
     @classmethod
     def clone(cls, root, parent):
@@ -287,7 +299,7 @@ class BaseS3FileListing:
         self.status_bar.setText(status)
 
 
-class S3FileListing(BaseS3FileListing, FileListingTreeView):
+class S3FileListing(BaseS3FileListing):
 
     def __init__(self, user, parent=None):
         super().__init__(parent)
@@ -296,8 +308,6 @@ class S3FileListing(BaseS3FileListing, FileListingTreeView):
             user['Root'] = '/' + user['Root']
         self.root = user['Root']
         self.user = user
-        self.location_bar = None
-        self.status_bar = None
         model = S3FilesTreeModel(user=self.user)
         self.setModel(model)
         self.setup_header()
@@ -318,7 +328,7 @@ class S3FileListing(BaseS3FileListing, FileListingTreeView):
         self.expanded.connect(self.model().view_expanded)
 
 
-class DigitalOceanFileListing(BaseS3FileListing, FileListingTreeView):
+class DigitalOceanFileListing(BaseS3FileListing):
 
     def __init__(self, user, parent=None):
         super().__init__(parent)

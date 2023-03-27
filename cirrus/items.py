@@ -662,7 +662,6 @@ def new_user(user, root):
 
 
 def match_user(users, act_type, root):
-    print(act_type, root)
     for user in users:
         if user['Type'].lower() == act_type.lower():
             if len(os.path.commonprefix([user['Root'], root])) > 1:
