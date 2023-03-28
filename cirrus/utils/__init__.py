@@ -30,6 +30,14 @@ class HLine(QFrame):
         self.setFrameShadow(QFrame.Sunken)
 
 
+class VLine(QFrame):
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setFrameShape(QFrame.VLine)
+        self.setFrameShadow(QFrame.Sunken)
+
+
 @Slot(partial)
 def execute_callback(func):
     try:

@@ -6,7 +6,7 @@ from functools import partial
 
 from .login import LoginWindow
 from .transfers import TransfersWindow
-from cirrus import database, items, menus, settings, utils, views
+from cirrus import database, items, menus, settings, utils, windows
 from cirrus.executor import Executor
 from cirrus.statuses import TransferStatus
 
@@ -166,7 +166,7 @@ class CentralWidgetWindow(QWidget):  # Terrible name
         # TODO: Tristate selections in none selected view
         # TODO: Doesn't this need a slot?
         panels = [
-            view for _, view, _ in self.splitter_listing_panels
+            window.view for window, _ in self.splitter_listing_panels
         ]
         menu = QMenu(parent)
         # TODO: Create a top-level menu here and add all other menus
@@ -233,28 +233,20 @@ class CentralWidgetWindow(QWidget):  # Terrible name
             self.add_splitter_panel(account)
 
     def add_splitter_panel(self, account, existing_panel=False):
-        if listing := views.types.get(account['Type'].lower()):
-            view = listing(account)
+        if listing := windows.types.get(account['Type'].lower()):
+            window = listing(account)
         else:
             logging.warn(f'No valid Type found for {account}')
             return
-        view.context_selections.connect(self.listing_context_menu)
-        location_bar = view.create_location_bar()
-        status_bar = view.create_status_bar()
-        widget = QWidget()
-        view_layout = QVBoxLayout()
-        view_layout.addLayout(location_bar)
-        view_layout.addWidget(view)
-        view_layout.addWidget(status_bar)
-        widget.setLayout(view_layout)
-        self.splitter_listing_panels.append((widget, view, account))
+        window.view.context_selections.connect(self.listing_context_menu)
+        self.splitter_listing_panels.append((window, account))
         root_change_cb = settings.update_panel_by_index_cb(
             panel=account,
             index=len(self.splitter_listing_panels) - 1,
             key='Root'
         )
-        view.root_changed.connect(root_change_cb)
-        self.listings_view_splitter.addWidget(widget)
+        window.view.root_changed.connect(root_change_cb)
+        self.listings_view_splitter.addWidget(window)
         # Not crazy about this
         if not existing_panel:
             settings.append_panel(account)
@@ -262,25 +254,25 @@ class CentralWidgetWindow(QWidget):  # Terrible name
     @Slot()
     def pop_splitter_panel(self):
         if len(self.splitter_listing_panels) > 1:
-            widget, _, account = self.splitter_listing_panels.pop()
+            window, account = self.splitter_listing_panels.pop()
             settings.pop_saved_panel(account)
-            widget.hide()
-            widget.setParent(None)
-            widget = None
-            del widget
+            window.hide()
+            window.setParent(None)
+            window = None
+            del window
 
     @Slot(int)
     def remove_splitter_panel(self, index):
         try:
-            widget, _, account = self.splitter_listing_panels.pop(index)
+            window, account = self.splitter_listing_panels.pop(index)
         except IndexError:
             pass
         else:
             settings.removed_saved_panel(index)
-            widget.hide()
-            widget.setParent(None)
-            widget = None
-            del widget
+            window.hide()
+            window.setParent(None)
+            window = None
+            del window
 
     @Slot(object)
     def time_delta_select(self, widget):

@@ -7,7 +7,6 @@ from cirrus.models import (
     LocalFileSystemModel,
     S3FilesTreeModel
 )
-from cirrus.validators import LocalPathValidator
 
 from PySide6.QtCore import (
     QDir,
@@ -20,15 +19,12 @@ from PySide6.QtCore import (
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QHeaderView,
-    QHBoxLayout,
-    QLabel,
-    QLineEdit,
     QTreeView,
 )
 
 
 class FileListingTreeView(QTreeView):
-    status_bar_change = Signal(str)
+    info_bar_change = Signal(str)
     location_bar_change = Signal(str)
     root_changed = Signal(str)
     context_selections = Signal(object, object,  list, list)
@@ -62,7 +58,7 @@ class FileListingTreeView(QTreeView):
         raise NotImplementedError('Must specificy refrresh() in a subclass')
 
 
-class LocalFileListing(FileListingTreeView):
+class LocalFileListingView(FileListingTreeView):
     # TODO: Turn off auto updating. It's very slow
 
     def __init__(self, user, parent=None):
@@ -73,7 +69,7 @@ class LocalFileListing(FileListingTreeView):
             self.root = os.path.expanduser('~')
         self.user = user
         self.location_bar = None
-        self.status_bar = None
+        self.info_bar = None
         model = LocalFileSystemModel()
         model.setFilter(
             QDir.AllEntries | QDir.NoDotAndDotDot | QDir.AllDirs | QDir.Hidden
@@ -87,24 +83,6 @@ class LocalFileListing(FileListingTreeView):
     @property
     def type(self):
         return 'local'
-
-    def create_location_bar(self, window_type='Local'):
-        self.location_bar = QLineEdit()
-        self.location_bar.setValidator(LocalPathValidator())
-        self.location_bar.insert(self.root)
-        self.location_bar.editingFinished.connect(self.change_dir)
-        self.location_bar_change.connect(self.update_location_bar)
-        window_type_label = QLabel(window_type)
-        window_location_bar_layout = QHBoxLayout()
-        window_location_bar_layout.addWidget(window_type_label)
-        window_location_bar_layout.addWidget(self.location_bar)
-        return window_location_bar_layout
-
-    def create_status_bar(self):
-        self.status_bar = None
-        self.status_bar = QLabel()
-        self.status_bar_change.connect(self.update_status_bar)
-        return self.status_bar
 
     @classmethod
     def clone(cls, user, parent):
@@ -137,8 +115,8 @@ class LocalFileListing(FileListingTreeView):
             self.change_dir()
 
     @Slot(str)
-    def update_status_bar(self, status):
-        self.status_bar.setText(status)
+    def update_info_bar(self, status):
+        self.info_bar.setText(status)
 
     def contextMenuEvent(self, event):
         files, folders = [], []
@@ -189,42 +167,18 @@ class LocalFileListing(FileListingTreeView):
         elif folders:
             output += (f'{len(folders):,} '
                        f'folder{"s" if len(folders) > 1 else ""} selected')
-        self.status_bar_change.emit(output)
+        self.info_bar_change.emit(output)
         super().selectionChanged(selected, deselected)
 
 
-class BaseS3FileListing(FileListingTreeView):
+class BaseS3FileListingView(FileListingTreeView):
 
     def __init__(self, parent=None):
         super().__init__(parent)  # Continues the super chain
         self.location_bar = None
-        self.status_bar = None
+        self.info_bar = None
         self.user = None
         self.root = None
-
-    def create_location_bar(self, window_type='S3'):
-        self.location_bar = QLineEdit()
-        # TODO: The validator will wait until S3 is normalized
-        # self.location_bar.setValidator(S3PathValidator())
-        self.location_bar.insert(self.root)
-        self.location_bar.editingFinished.connect(self.change_dir)
-        self.location_bar_change.connect(self.update_location_bar)
-        window_type_label = QLabel(window_type)
-        window_location_bar_layout = QHBoxLayout()
-        window_location_bar_layout.addWidget(window_type_label)
-        window_location_bar_layout.addWidget(self.location_bar)
-        return window_location_bar_layout
-
-    def create_status_bar(self):
-        self.status_bar = None
-        self.status_bar = QLabel()
-        self.status_bar_change.connect(self.update_status_bar)
-        return self.status_bar
-
-    def create_action_bar(self):
-        # self.action_bar = None
-        # layout = QHBoxLayout()
-        pass
 
     @classmethod
     def clone(cls, root, parent):
@@ -276,12 +230,12 @@ class BaseS3FileListing(FileListingTreeView):
         elif folders:
             output += (f'{len(folders):,} '
                        f'folder{"s" if len(folders) > 1 else ""} selected')
-        self.status_bar_change.emit(output)
+        self.info_bar_change.emit(output)
         super().selectionChanged(selected, deselected)
 
     @Slot()
     def change_dir(self):
-        # TODO: This is slow in the view. Use the main status_bar
+        # TODO: This is slow in the view. Use the main info_bar
         #       to inform the user the move has started
         self.root = self.location_bar.text()
         self.user['Root'] = self.root
@@ -295,11 +249,11 @@ class BaseS3FileListing(FileListingTreeView):
         self.change_dir()
 
     @Slot(str)
-    def update_status_bar(self, status):
-        self.status_bar.setText(status)
+    def update_info_bar(self, status):
+        self.info_bar.setText(status)
 
 
-class S3FileListing(BaseS3FileListing):
+class S3FileListingView(BaseS3FileListingView):
 
     def __init__(self, user, parent=None):
         super().__init__(parent)
@@ -320,6 +274,8 @@ class S3FileListing(BaseS3FileListing):
         return 's3'
 
     def refresh(self):
+        # TODO: This blindly accepts the current location bar's text
+        #       That is not a refresh
         self.collapsed.disconnect()
         self.expanded.disconnect()
         model = S3FilesTreeModel(user=self.user)
@@ -328,7 +284,7 @@ class S3FileListing(BaseS3FileListing):
         self.expanded.connect(self.model().view_expanded)
 
 
-class DigitalOceanFileListing(BaseS3FileListing):
+class DigitalOceanFileListingView(BaseS3FileListingView):
 
     def __init__(self, user, parent=None):
         super().__init__(parent)
@@ -338,7 +294,7 @@ class DigitalOceanFileListing(BaseS3FileListing):
         self.root = user['Root']
         self.user = user
         self.location_bar = None
-        self.status_bar = None
+        self.info_bar = None
         model = DigitalOceanFilesTreeModel(user=self.user)
         self.setModel(model)
         self.setup_header()
@@ -351,6 +307,8 @@ class DigitalOceanFileListing(BaseS3FileListing):
         return 'digital ocean'
 
     def refresh(self):
+        # TODO: This blindly accepts the current location bar's text
+        #       That is not a refresh
         self.collapsed.disconnect()
         self.expanded.disconnect()
         model = DigitalOceanFilesTreeModel(user=self.user)
