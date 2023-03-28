@@ -17,9 +17,7 @@ from PySide6.QtCore import (
     Slot,
 )
 from PySide6.QtWidgets import (
-    QHBoxLayout,
     QMenu,
-    QPushButton,
     QSplitter,
     QVBoxLayout,
     QWidget,
@@ -61,7 +59,6 @@ class CentralWidgetWindow(QWidget):  # Terrible name
         # Files View (Splittable)
         self.splitter_listing_panels = []
         self.listings_view_splitter = QSplitter()
-        # self.setup_initial_splitter_panels()
 
         # Executor
         self.current_transfers = set()
@@ -79,39 +76,6 @@ class CentralWidgetWindow(QWidget):  # Terrible name
             self.transfers_window.remove_transfer_item
         )
         self.executor.stopped.connect(self.transfers_window.select_row)
-
-        self.transfers_start_btn = QPushButton('Start Transfers')
-        self.transfers_start_btn.clicked.connect(self.executor.start)
-        self.transfers_start_btn.clicked.connect(
-            partial(self.transfers_start_btn.setDisabled, True)
-        )
-
-        self.transfers_toggle_btn = QPushButton()
-        if self.transfers_window.isHidden():
-            self.transfers_toggle_btn.setText('Show Transfers')
-        else:
-            self.transfers_toggle_btn.setText('Hide Transfers')
-        self.transfers_toggle_btn.clicked.connect(self.toggle_transfer_widnow)
-
-        self.transfers_stop_btn = QPushButton('Stop Transfers')
-        self.transfers_stop_btn.setDisabled(True)
-        self.transfers_stop_btn.clicked.connect(self.executor.stop)
-        self.transfers_stop_btn.clicked.connect(
-            partial(self.transfers_stop_btn.setDisabled, True)
-        )
-        self.transfers_start_btn.clicked.connect(
-            partial(self.transfers_stop_btn.setEnabled, True)
-        )
-        self.transfers_stop_btn.clicked.connect(
-            partial(self.transfers_start_btn.setEnabled, True)
-        )
-
-        self.executor.completed.connect(
-            partial(self.transfers_start_btn.setEnabled, True)
-        )
-        self.executor.completed.connect(
-            partial(self.transfers_stop_btn.setDisabled, True)
-        )
 
         # Timers
         self.update_timer = QTimer()
@@ -131,26 +95,12 @@ class CentralWidgetWindow(QWidget):  # Terrible name
         )
         self.batch_finished_timer.start()
 
-        # Tmp buttons that will become actions
-        self.add_panel_btn = QPushButton('Add Panel')
-        self.add_panel_btn.clicked.connect(self.setup_login)
-
-        self.remove_panel_btn = QPushButton('Remove Panel')
-        self.remove_panel_btn.clicked.connect(self.pop_splitter_panel)
-
         # Should this be a QSplitter instead?
         layout = QVBoxLayout()
         views_layout = QSplitter()
         views_layout.setOrientation(Qt.Vertical)
         views_layout.addWidget(self.listings_view_splitter)
         views_layout.addWidget(self.transfers_window)
-        btn_layout = QHBoxLayout()
-        btn_layout.addWidget(self.transfers_start_btn)
-        btn_layout.addWidget(self.transfers_stop_btn)
-        btn_layout.addWidget(self.transfers_toggle_btn)
-        btn_layout.addWidget(self.add_panel_btn)
-        btn_layout.addWidget(self.remove_panel_btn)
-        layout.addLayout(btn_layout)
         layout.addWidget(views_layout)
         self.setLayout(layout)
         self.last_updated = datetime.utcnow()
@@ -306,15 +256,13 @@ class CentralWidgetWindow(QWidget):  # Terrible name
                 )
 
     @Slot()
-    def toggle_transfer_widnow(self):
-        if self.transfers_toggle_btn.text() == 'Show Transfers':
-            self.transfers_toggle_btn.setText('Hide Transfers')
-            self.transfers_window.show()
-            settings.update_transfer_window_status(True)
-        else:
-            self.transfers_toggle_btn.setText('Show Transfers')
+    def toggle_transfer_window(self):
+        if self.transfers_window.isVisible():
             self.transfers_window.hide()
             settings.update_transfer_window_status(False)
+        else:
+            self.transfers_window.show()
+            settings.update_transfer_window_status(True)
 
     @Slot(items.TransferItem)
     def transfer_started(self, item):

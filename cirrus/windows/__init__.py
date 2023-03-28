@@ -10,4 +10,3 @@ types = {
     's3': S3FileListingWindow,
     'digital ocean': DigitOceanFileListingWindow
 }
-

@@ -13,7 +13,9 @@ class DigitOceanFileListingWindow(QWidget):
     def __init__(self, user, parent=None):
         super().__init__(parent)
         self.view = DigitalOceanFileListingView(user)
-        self.navigation_bar = toolbars.listings.create_navigation_bar(self.view)
+        self.navigation_bar = toolbars.listings.create_navigation_bar(
+            self.view
+        )
         self.info_bar = toolbars.listings.create_info_bar(self.view)
         layout = QVBoxLayout()
         layout.addLayout(self.navigation_bar)

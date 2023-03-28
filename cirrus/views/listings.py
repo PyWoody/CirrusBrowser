@@ -172,6 +172,7 @@ class LocalFileListingView(FileListingTreeView):
 
 
 class BaseS3FileListingView(FileListingTreeView):
+    # TODO: On-hover starting fetch_children w/ tracking for start/stop
 
     def __init__(self, parent=None):
         super().__init__(parent)  # Continues the super chain

@@ -5,20 +5,15 @@ from cirrus.validators import LocalPathValidator
 
 from PySide6.QtWidgets import (
     QApplication,
-    QComboBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QPushButton,
     QStyle,
-    QToolBar,
-    QWidget,
-    QWidgetAction,
 )
 
 
 def create_navigation_bar(view):
-    # TODO: <, >, Refresh  (Icons)
     back_btn = QPushButton()
     icon = QApplication.style().standardIcon(QStyle.SP_ArrowBack)
     back_btn.setIcon(icon)

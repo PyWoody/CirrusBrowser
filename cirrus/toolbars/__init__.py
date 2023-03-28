@@ -1,3 +1,3 @@
-from . import listings
+from . import listings, main
 
-__all__ = ['listings']
+__all__ = ['listings', 'main']

@@ -1,7 +1,7 @@
 import logging
 
 from .central import CentralWidgetWindow
-from cirrus import database
+from cirrus import database, toolbars
 
 from PySide6.QtWidgets import QMainWindow
 
@@ -15,9 +15,11 @@ class MainWindow(QMainWindow):
             logging.info('Database cleaned.')
         self.central_widget = CentralWidgetWindow()
         self.setCentralWidget(self.central_widget)
-        self.resize(900, 700)
         self.status_bar = self.statusBar()
         self.status_bar.showMessage('Status Bar Test')
+        tool_bar = toolbars.main.create_tool_bar(self.central_widget)
+        self.addToolBar(tool_bar)
+        self.resize(900, 700)
 
     def closeEvent(self, event):
         try:
