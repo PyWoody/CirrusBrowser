@@ -1,5 +1,7 @@
 import os
 
+from functools import partial
+
 from cirrus import utils
 from cirrus.items import LocalItem
 from cirrus.models import (
@@ -7,6 +9,7 @@ from cirrus.models import (
     LocalFileSystemModel,
     S3FilesTreeModel
 )
+from cirrus.validators import LocalPathValidator
 
 from PySide6.QtCore import (
     QDir,
@@ -18,7 +21,13 @@ from PySide6.QtCore import (
 )
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QApplication,
+    QHBoxLayout,
     QHeaderView,
+    QLabel,
+    QLineEdit,
+    QPushButton,
+    QStyle,
     QTreeView,
 )
 
@@ -53,6 +62,55 @@ class FileListingTreeView(QTreeView):
         self.resizeColumnToContents(0)
         self.resizeColumnToContents(1)
         self.resizeColumnToContents(2)
+
+    def create_navigation_bar(self):
+        if self.location_bar is not None:
+            cls_name = self.__class__.__name__
+            raise Exception(f'location_bar already exists for {cls_name}.')
+        back_btn = QPushButton()
+        icon = QApplication.style().standardIcon(QStyle.SP_ArrowBack)
+        back_btn.setIcon(icon)
+        back_btn.clicked.connect(partial(print, 'back'))
+        back_btn.setFixedSize(20, 20)
+        back_btn.setEnabled(False)
+        back_btn.setFlat(True)
+        forward_btn = QPushButton()
+        icon = QApplication.style().standardIcon(QStyle.SP_ArrowForward)
+        forward_btn.setIcon(icon)
+        forward_btn.clicked.connect(partial(print, 'forward'))
+        forward_btn.setFixedSize(20, 20)
+        forward_btn.setEnabled(False)
+        forward_btn.setFlat(True)
+        refresh_btn = QPushButton()
+        icon = QApplication.style().standardIcon(QStyle.SP_BrowserReload)
+        refresh_btn.setIcon(icon)
+        refresh_btn.clicked.connect(self.refresh)
+        refresh_btn.setFixedSize(20, 20)
+        refresh_btn.setFlat(True)
+        # TODO: Will become a QComboBox w/ histories
+        self.location_bar = QLineEdit()
+        # TODO: S3 Validators
+        if self.type.lower() == 'local':
+            self.location_bar.setValidator(LocalPathValidator())
+        self.location_bar.insert(self.root)
+        self.location_bar.editingFinished.connect(self.change_dir)
+        self.location_bar_change.connect(self.update_location_bar)
+        window_location_bar_layout = QHBoxLayout()
+        window_location_bar_layout.addWidget(back_btn)
+        window_location_bar_layout.addWidget(forward_btn)
+        window_location_bar_layout.addWidget(refresh_btn)
+        window_location_bar_layout.addWidget(utils.VLine())
+        window_location_bar_layout.addWidget(self.location_bar)
+        return window_location_bar_layout
+
+
+    def create_info_bar(self):
+        if self.info_bar is not None:
+            cls_name = self.__class__.__name__
+            raise Exception(f'info_bar already exists {cls_name}.')
+        self.info_bar = QLabel()
+        self.info_bar_change.connect(self.update_info_bar)
+        return self.info_bar
 
     def refresh(self):
         raise NotImplementedError('Must specificy refrresh() in a subclass')
