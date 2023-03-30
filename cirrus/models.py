@@ -253,6 +253,8 @@ class BaseS3FilesTreeModel(QStandardItemModel):
             # TODO: This causes a runtime error if parent is deleted
             #       before we get to this point
             #       Should do a is_alive style check and return otherwise
+            # TODO: Just make it a helper func so it can be shared everywhere
+            #       parent == QStandardItem
             if parent_data := parent.data():
                 if parent_data.collapsed:
                     logging.info(f'{parent} exited due to collapse.')

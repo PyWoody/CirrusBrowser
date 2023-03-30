@@ -2,6 +2,9 @@ import json
 import logging
 import os
 
+from PySide6.QtCore import QReadWriteLock
+
+RW_LOCK = QReadWriteLock()
 
 ROOT = os.path.abspath(os.path.dirname(__file__))
 DATA_DIR = os.path.join(ROOT, 'data')
@@ -10,55 +13,60 @@ DATABASE = os.path.join(DATA_DIR, 'transfers.db')
 LOG = os.path.join(ROOT, 'logs', 'cirrus.log')
 
 
-def transfer_window_visible():
+def read_settings_data(no_lock=False):
     if os.path.isfile(SETUP):
-        data = json.load(open(SETUP, 'r', encoding='utf8'))
-        return data.get('Show Transer Window', False)
-    return False
+        if no_lock:
+            data = json.load(open(SETUP, 'r', encoding='utf8'))
+        else:
+            RW_LOCK.lockForRead()
+            data = json.load(open(SETUP, 'r', encoding='utf8'))
+            RW_LOCK.unlock()
+    else:
+        data = dict()
+    return data
+
+
+def transfer_window_visible():
+    data = read_settings_data()
+    return data.get('Show Transer Window', False)
 
 
 def update_transfer_window_status(status):
-    if os.path.isfile(SETUP):
-        data = json.load(open(SETUP, 'r', encoding='utf8'))
-    else:
-        data = dict()
+    RW_LOCK.lockForWrite()
+    data = read_settings_data(no_lock=True)
     data['Show Transer Window'] = bool(status)
     with open(SETUP, 'w', encoding='utf8') as f:
         json.dump(data, f)
+    RW_LOCK.unlock()
 
 
 def append_panel(panel):
-    if os.path.isfile(SETUP):
-        data = json.load(open(SETUP, 'r', encoding='utf8'))
-    else:
-        data = dict()
-    data.setdefault('Panel', []).append(panel)
+    RW_LOCK.lockForWrite()
+    data = read_settings_data(no_lock=True)
+    data.setdefault('Panels', []).append(panel)
     with open(SETUP, 'w', encoding='utf8') as f:
         json.dump(data, f)
+    RW_LOCK.unlock()
 
 
 def insert_panel(index, panel):
-    if os.path.isfile(SETUP):
-        data = json.load(open(SETUP, 'r', encoding='utf8'))
-    else:
-        data = dict()
-    data.setdefault('Panel', []).insert(index, panel)
+    RW_LOCK.lockForWrite()
+    data = read_settings_data(no_lock=True)
+    data.setdefault('Panels', []).insert(index, panel)
     with open(SETUP, 'w', encoding='utf8') as f:
         json.dump(data, f)
+    RW_LOCK.unlock()
 
 
 def saved_panels():
-    if os.path.isfile(SETUP):
-        data = json.load(open(SETUP, 'r', encoding='utf8'))
-        yield from data.setdefault('Panel', [])
+    if data := read_settings_data():
+        yield from data.setdefault('Panels', [])
 
 
 def update_saved_panels(panel):
-    if os.path.isfile(SETUP):
-        data = json.load(open(SETUP, 'r', encoding='utf8'))
-    else:
-        data = dict()
-    for existing_panel in data.setdefault('Panel', []):
+    RW_LOCK.lockForWrite()
+    data = read_settings_data(no_lock=True)
+    for existing_panel in data.setdefault('Panels', []):
         if existing_panel['Type'] == panel['Type']:
             if existing_panel['Access Key'] == panel['Access Key']:
                 for k, v in panel.items():
@@ -66,64 +74,67 @@ def update_saved_panels(panel):
                         existing_panel[k] = v
                 break
     else:
-        data.setdefault('Panel', []).append(panel)
+        data.setdefault('Panels', []).append(panel)
     with open(SETUP, 'w', encoding='utf8') as f:
         json.dump(data, f)
+    RW_LOCK.unlock()
 
 
 def update_saved_panels_by_index(index, panel):
-    if os.path.isfile(SETUP):
-        data = json.load(open(SETUP, 'r', encoding='utf8'))
+    if data := read_settings_data():
         try:
-            data.setdefault('Panel', [])[index] = panel
+            RW_LOCK.lockForWrite()
+            data.setdefault('Panels', [])[index] = panel
         except IndexError:
-            logging.debug(f'IndexError while updating Panel: {panel}')
+            logging.debug(f'IndexError while updating Panels: {panel}')
         else:
             with open(SETUP, 'w', encoding='utf8') as f:
                 json.dump(data, f)
+        finally:
+            RW_LOCK.unlock()
 
 
-def remove_saved_panel(index):
-    if os.path.isfile(SETUP):
-        data = json.load(open(SETUP, 'r', encoding='utf8'))
+def pop_saved_panel(index=-1):
+    if data := read_settings_data():
         try:
-            data.setdefault('Panel', []).pop(index)
+            RW_LOCK.lockForWrite()
+            _ = data.setdefault('Panels', []).pop(index)
         except IndexError:
-            logging.debug(f'IndexError while removing Panel: {data["Panels"]}')
+            logging.debug(f'IndexError while removing Panels: {data["Panels"]}')
         else:
             with open(SETUP, 'w', encoding='utf8') as f:
                 json.dump(data, f)
+        finally:
+            RW_LOCK.unlock()
 
 
-def pop_saved_panel(panel):
-    if os.path.isfile(SETUP):
+def remove_saved_panel(panel):
+    if data := read_settings_data():
         updated = False
-        data = json.load(open(SETUP, 'r', encoding='utf8'))
-        data.setdefault('Panel', []).reverse()
+        data.setdefault('Panels', []).reverse()
         try:
-            data.setdefault('Panel', []).remove(panel)
+            RW_LOCK.lockForWrite()
+            data.setdefault('Panels', []).remove(panel)
         except ValueError:
-            logging.debug(f'ValueError while popping Panel: {panel}')
+            logging.debug(f'ValueError while popping Panels: {panel}')
         else:
             updated = True
         finally:
-            data.setdefault('Panel', []).reverse()
-        if updated:
-            with open(SETUP, 'w', encoding='utf8') as f:
-                json.dump(data, f)
+            data.setdefault('Panels', []).reverse()
+            if updated:
+                with open(SETUP, 'w', encoding='utf8') as f:
+                    json.dump(data, f)
+            RW_LOCK.unlock()
 
 
 def saved_users():
-    if os.path.isfile(SETUP):
-        data = json.load(open(SETUP, 'r', encoding='utf8'))
+    if data := read_settings_data():
         yield from data.setdefault('Users', [])
 
 
 def update_saved_users(user):
-    if os.path.isfile(SETUP):
-        data = json.load(open(SETUP, 'r', encoding='utf8'))
-    else:
-        data = dict()
+    data = read_settings_data()
+    RW_LOCK.lockForWrite()
     for existing_user in data.setdefault('Users', []):
         if existing_user['Type'] == user['Type']:
             if existing_user['Access Key'] == user['Access Key']:
@@ -135,6 +146,7 @@ def update_saved_users(user):
         data.setdefault('Users', []).append(user)
     with open(SETUP, 'w', encoding='utf8') as f:
         json.dump(data, f)
+    RW_LOCK.unlock()
 
 
 def update_panel_by_index_cb(*, panel, index, key):

@@ -197,7 +197,6 @@ class CentralWidgetWindow(QWidget):  # Terrible name
         )
         window.view.root_changed.connect(root_change_cb)
         self.listings_view_splitter.addWidget(window)
-        # Not crazy about this
         if not existing_panel:
             settings.append_panel(account)
 
@@ -205,7 +204,7 @@ class CentralWidgetWindow(QWidget):  # Terrible name
     def pop_splitter_panel(self):
         if len(self.splitter_listing_panels) > 1:
             window, account = self.splitter_listing_panels.pop()
-            settings.pop_saved_panel(account)
+            settings.pop_saved_panel()
             window.hide()
             window.setParent(None)
             window = None
@@ -218,7 +217,7 @@ class CentralWidgetWindow(QWidget):  # Terrible name
         except IndexError:
             pass
         else:
-            settings.removed_saved_panel(index)
+            settings.remove_saved_panel(account)
             window.hide()
             window.setParent(None)
             window = None

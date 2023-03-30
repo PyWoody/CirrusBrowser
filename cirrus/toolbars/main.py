@@ -1,4 +1,8 @@
 from functools import partial
+
+from cirrus import settings
+
+from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
@@ -11,37 +15,83 @@ from PySide6.QtWidgets import (
 )
 
 
+class CustomAddComboBox(QComboBox):
+    # TODO: Adds from *saved* panels, not existing ones
+
+    def __init__(self, instance, parent=None):
+        super().__init__(parent)
+        self.instance = instance
+        self.currentTextChanged.connect(self.reset_index)
+        self.currentIndexChanged.connect(self.account_selected)
+        self.focus_in = True
+
+    @Slot(int)
+    def reset_index(self, text):
+        self.setCurrentIndex(-1)
+
+    @Slot(int)
+    def account_selected(self, index):
+        if index >= 0 and not self.focus_in:
+            if account := self.itemData(index):
+                self.instance.add_splitter_panel(account)
+
+    def reset_options(self):
+        self.clear()
+        for account in settings.saved_users():
+            text = f'({account["Type"]}) {account["Root"]}'
+            self.addItem(text, userData=account)
+
+    def focusInEvent(self, event):
+        if event.reason() == Qt.MouseFocusReason:
+            self.reset_options()
+            self.focus_in = True
+            event.accept()
+        else:
+            self.focus_in = False
+            return super().focusInEvent(event)
+
+
+class CustomRemoveComboBox(QComboBox):
+
+    def __init__(self, instance, parent=None):
+        super().__init__(parent)
+        self.instance = instance
+        self.currentTextChanged.connect(self.reset_index)
+        self.currentIndexChanged.connect(self.account_selected)
+        self.focus_in = True
+
+    @Slot(int)
+    def reset_index(self, index):
+        self.setCurrentIndex(-1)
+
+    @Slot(int)
+    def account_selected(self, index):
+        if not self.focus_in:
+            if (panel := self.itemData(index)) is not None:
+                self.instance.remove_splitter_panel(panel)
+
+    def reset_options(self):
+        self.clear()
+        for idx, (_, account) in enumerate(
+            self.instance.splitter_listing_panels
+        ):
+            text = f'({account["Type"]}) {account["Root"]}'
+            self.addItem(text, userData=idx)
+
+    def focusInEvent(self, event):
+        if event.reason() == Qt.MouseFocusReason:
+            self.reset_options()
+            self.focus_in = True
+            event.accept()
+        else:
+            self.focus_in = False
+            return super().focusInEvent(event)
+
+
+def drop_down_selector(parent, accounts):
+    widget = QWidget(parent)
+
 def create_tool_bar(instance):
-    new_panel_sel = None
-    pop_panel_sel = None
-
-    def add_drop_down(activate_index):
-        print(activate_index)
-        # NOTE: This doesn't make sense but it's OK for now
-        #       New panels will come from settings, not existing panels
-        #       This is really for removing a panel
-        if activate_index != 0:
-            for index in range(1, new_panel_sel.count() + 1):
-                new_panel_sel.removeItem(index)
-            for _, account in instance.splitter_listing_panels:
-                new_panel_sel.addItem(
-                    f'{account["Type"]} - {account["Root"]}'
-                )
-
-    def remove_dropdown():
-        if pop_panel_sel is not None:
-            pop_panel_sel.deleteLater()
-            pop_panel_sel = None
-        pop_panel_sel = QComboBox('⌄')
-        pop_panel_sel.activated.conect(
-            partial, print, 'REMOVED:',
-        )
-        for _, account in instance.splitter_listing_panels:
-            pop_panel_sel.addItem(
-                f'{account["Type"]} - {account["Root"]}'
-            )
-        return pop_panel_sel
-
     tool_bar = QToolBar('Actions')
 
     # Add/Remove Panels
@@ -49,12 +99,7 @@ def create_tool_bar(instance):
     new_panel_layout = QHBoxLayout()
     new_panel_btn = QPushButton('+')
     new_panel_btn.setFixedSize(20, 20)
-    new_panel_sel = QComboBox()
-    new_panel_sel.setPlaceholderText('⌄')
-    # new_panel_sel.setCurrentIndex(-1)
-    # new_panel_sel.activated.connect(add_drop_down)
-    new_panel_sel.addItem('Test')
-    new_panel_sel.activated.connect(partial(print, 'HERE'))
+    new_panel_sel = CustomAddComboBox(instance)
     new_panel_layout.addWidget(new_panel_btn)
     new_panel_layout.addWidget(new_panel_sel)
     new_panel_widget.setLayout(new_panel_layout)
@@ -63,10 +108,16 @@ def create_tool_bar(instance):
     new_panel_action.setStatusTip('Add New Panel')
     new_panel_btn.clicked.connect(instance.setup_login)
 
+    pop_panel_widget = QWidget()
+    pop_panel_layout = QHBoxLayout()
     pop_panel_btn = QPushButton('-')
     pop_panel_btn.setFixedSize(20, 20)
+    pop_panel_sel = CustomRemoveComboBox(instance)
+    pop_panel_layout.addWidget(pop_panel_btn)
+    pop_panel_layout.addWidget(pop_panel_sel)
+    pop_panel_widget.setLayout(pop_panel_layout)
     pop_panel_action = QWidgetAction(instance)
-    pop_panel_action.setDefaultWidget(pop_panel_btn)
+    pop_panel_action.setDefaultWidget(pop_panel_widget)
     pop_panel_action.setStatusTip('Remove Panel')
     pop_panel_btn.clicked.connect(instance.pop_splitter_panel)
 
