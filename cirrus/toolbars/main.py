@@ -2,7 +2,7 @@ from functools import partial
 
 from cirrus import settings
 
-from PySide6.QtCore import Qt, Signal, Slot
+from PySide6.QtCore import Qt, Slot
 from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
@@ -16,7 +16,6 @@ from PySide6.QtWidgets import (
 
 
 class CustomAddComboBox(QComboBox):
-    # TODO: Adds from *saved* panels, not existing ones
 
     def __init__(self, instance, parent=None):
         super().__init__(parent)
@@ -87,9 +86,6 @@ class CustomRemoveComboBox(QComboBox):
             self.focus_in = False
             return super().focusInEvent(event)
 
-
-def drop_down_selector(parent, accounts):
-    widget = QWidget(parent)
 
 def create_tool_bar(instance):
     tool_bar = QToolBar('Actions')
