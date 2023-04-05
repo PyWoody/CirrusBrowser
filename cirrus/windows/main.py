@@ -10,6 +10,7 @@ class MainWindow(QMainWindow):
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.setWindowTitle('Cirrus Browser (Experimental)')
         logging.info('Resetting the database.')
         if database.clean_database():
             logging.info('Database cleaned.')

@@ -2,12 +2,14 @@ from functools import partial
 
 from cirrus import settings
 
-from PySide6.QtCore import Qt, Slot
+from PySide6.QtCore import QSize, Qt, Slot
 from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
     QHBoxLayout,
+    QListView,
     QPushButton,
+    QSizePolicy,
     QStyle,
     QToolBar,
     QWidget,
@@ -23,6 +25,13 @@ class CustomAddComboBox(QComboBox):
         self.currentTextChanged.connect(self.reset_index)
         self.currentIndexChanged.connect(self.account_selected)
         self.focus_in = True
+        self.view().setContentsMargins(0, 0, 0, 0)
+        self.setFrame(False)
+        self.setSizeAdjustPolicy(
+            QComboBox.AdjustToMinimumContentsLengthWithIcon
+        )
+        self.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
+        self.setMinimumSize(20, 25)
 
     @Slot(int)
     def reset_index(self, text):
@@ -58,6 +67,13 @@ class CustomRemoveComboBox(QComboBox):
         self.currentTextChanged.connect(self.reset_index)
         self.currentIndexChanged.connect(self.account_selected)
         self.focus_in = True
+        self.view().setContentsMargins(0, 0, 0, 0)
+        self.setFrame(False)
+        self.setSizeAdjustPolicy(
+            QComboBox.AdjustToMinimumContentsLengthWithIcon
+        )
+        self.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
+        self.setMinimumSize(20, 25)
 
     @Slot(int)
     def reset_index(self, index):
@@ -89,12 +105,14 @@ class CustomRemoveComboBox(QComboBox):
 
 def create_tool_bar(instance):
     tool_bar = QToolBar('Actions')
+    tool_bar.setMovable(False)
+    tool_bar.setFloatable(False)
 
     # Add/Remove Panels
     new_panel_widget = QWidget()
     new_panel_layout = QHBoxLayout()
     new_panel_btn = QPushButton('+')
-    new_panel_btn.setFixedSize(20, 20)
+    new_panel_btn.setFixedSize(25, 25)
     new_panel_sel = CustomAddComboBox(instance)
     new_panel_layout.addWidget(new_panel_btn)
     new_panel_layout.addWidget(new_panel_sel)
@@ -107,7 +125,7 @@ def create_tool_bar(instance):
     pop_panel_widget = QWidget()
     pop_panel_layout = QHBoxLayout()
     pop_panel_btn = QPushButton('-')
-    pop_panel_btn.setFixedSize(20, 20)
+    pop_panel_btn.setFixedSize(25, 25)
     pop_panel_sel = CustomRemoveComboBox(instance)
     pop_panel_layout.addWidget(pop_panel_btn)
     pop_panel_layout.addWidget(pop_panel_sel)
@@ -131,7 +149,7 @@ def create_tool_bar(instance):
     icon = QApplication.style().standardIcon(QStyle.SP_MediaPlay)
     start_transfers_btn.setIcon(icon)
     start_transfers_action.setDefaultWidget(start_transfers_btn)
-    start_transfers_btn.setFixedSize(20, 20)
+    start_transfers_btn.setFixedSize(25, 25)
 
     stop_transfers_action = QWidgetAction(instance)
     stop_transfers_btn = QPushButton()
@@ -156,7 +174,7 @@ def create_tool_bar(instance):
     )
     icon = QApplication.style().standardIcon(QStyle.SP_MediaStop)
     stop_transfers_btn.setIcon(icon)
-    stop_transfers_btn.setFixedSize(20, 20)
+    stop_transfers_btn.setFixedSize(25, 25)
     stop_transfers_btn.setEnabled(False)
     stop_transfers_btn.setFlat(True)
     stop_transfers_action.setDefaultWidget(stop_transfers_btn)
@@ -180,7 +198,7 @@ def create_tool_bar(instance):
     toggle_transfers_view_btn.clicked.connect(instance.toggle_transfer_window)
     icon = QApplication.style().standardIcon(QStyle.SP_FileDialogListView)
     toggle_transfers_view_btn.setIcon(icon)
-    toggle_transfers_view_btn.setFixedSize(20, 20)
+    toggle_transfers_view_btn.setFixedSize(25, 25)
     toggle_transfers_view_action.setDefaultWidget(toggle_transfers_view_btn)
 
     tool_bar.addAction(new_panel_action)
