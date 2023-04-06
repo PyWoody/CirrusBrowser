@@ -38,9 +38,9 @@ class NavBarLineEdit(QLineEdit):
         self.view.hide()
 
     def focusInEvent(self, event):
-        if self.view.model().rowCount() > 0:
+        if (row_count := self.view.model().rowCount()) > 0:
             self.view.show()
-            height = self.view.model().rowCount() * self.view.sizeHintForRow(0)
+            height = row_count * self.view.sizeHintForRow(0)
             frame = self.frameGeometry()
             self.view.setGeometry(
                 frame.x() - 10,
@@ -48,11 +48,11 @@ class NavBarLineEdit(QLineEdit):
                 frame.width(),
                 height + 5,
             )
-        super().focusInEvent(event)
+        return super().focusInEvent(event)
 
     def focusOutEvent(self, event):
         self.clear_focus()
-        super().focusOutEvent(event)
+        return super().focusOutEvent(event)
 
 
 class NavBarListView(QListView):
@@ -61,8 +61,9 @@ class NavBarListView(QListView):
     def __init__(self, parent):
         super().__init__(parent)
         self.hide()
-        # self.setTextElideMode(Qt.ElideMiddle)
-        # self.setWordWrap(True)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.setUniformItemSizes(True)
+        self.setTextElideMode(Qt.ElideMiddle)
         self.setDragDropMode(QAbstractItemView.NoDragDrop)
         self.setMouseTracking(True)
         self.clicked.connect(self.location_clicked)
