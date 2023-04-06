@@ -5,6 +5,7 @@ from cirrus.views import (
 )
 
 from PySide6.QtCore import Slot
+from PySide6.QtGui import QFocusEvent
 from PySide6.QtWidgets import QVBoxLayout, QWidget
 
 
@@ -25,6 +26,11 @@ class DigitOceanFileListingWindow(QWidget):
         layout.addWidget(self.info_bar)
         self.setLayout(layout)
 
+        self.view.location_bar.set_model(self.history)
+        self.view.location_bar.selection_made.connect(
+            self.view.update_location_bar
+        )
+
         self.view.root_changed.connect(self.handle_root_changes)
         self.view.back_btn.clicked.connect(self.back)
         self.view.forward_btn.clicked.connect(self.forward)
@@ -38,6 +44,7 @@ class DigitOceanFileListingWindow(QWidget):
         self.current_index += 1
         self.history = self.history[:self.current_index]
         self.history.append(root)
+        self.view.location_bar.set_model(self.history[:-1])
         if not self.view.back_btn.isEnabled():
             self.view.back_btn.setEnabled(True)
             self.view.back_btn.setFlat(False)
@@ -80,13 +87,18 @@ class LocalFileListingWindow(QWidget):
         self.current_index = 0
         self.history = []
         self.view = LocalFileListingView(user)
-        self.location_bar = self.view.create_navigation_bar()
+        self.location_bar_layout = self.view.create_navigation_bar()
         self.info_bar = self.view.create_info_bar()
         layout = QVBoxLayout()
-        layout.addLayout(self.location_bar)
+        layout.addLayout(self.location_bar_layout)
         layout.addWidget(self.view)
         layout.addWidget(self.info_bar)
         self.setLayout(layout)
+
+        self.view.location_bar.set_model(self.history)
+        self.view.location_bar.selection_made.connect(
+            self.view.update_location_bar
+        )
 
         self.view.root_changed.connect(self.handle_root_changes)
         self.view.back_btn.clicked.connect(self.back)
@@ -101,6 +113,8 @@ class LocalFileListingWindow(QWidget):
         self.current_index += 1
         self.history = self.history[:self.current_index]
         self.history.append(root)
+        self.view.location_bar.set_model(self.history)
+        # self.view.location_bar.set_model(self.history[:-1])
         if not self.view.back_btn.isEnabled():
             self.view.back_btn.setEnabled(True)
             self.view.back_btn.setFlat(False)

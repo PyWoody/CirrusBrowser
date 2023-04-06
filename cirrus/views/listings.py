@@ -7,13 +7,14 @@ from cirrus.items import LocalItem
 from cirrus.models import (
     DigitalOceanFilesTreeModel,
     LocalFileSystemModel,
-    S3FilesTreeModel
+    S3FilesTreeModel,
 )
+from cirrus.widgets import NavBarLineEdit
 from cirrus.validators import LocalPathValidator
 
 from PySide6.QtCore import (
-    QDir,
     Qt,
+    QDir,
     QModelIndex,
     QItemSelection,
     Signal,
@@ -26,6 +27,7 @@ from PySide6.QtWidgets import (
     QHeaderView,
     QLabel,
     QLineEdit,
+    QListView,
     QPushButton,
     QStyle,
     QTreeView,
@@ -86,8 +88,7 @@ class FileListingTreeView(QTreeView):
         refresh_btn.clicked.connect(self.refresh)
         refresh_btn.setFixedSize(20, 20)
         refresh_btn.setFlat(True)
-        # TODO: Will become a QComboBox w/ histories
-        self.location_bar = QLineEdit()
+        self.location_bar = NavBarLineEdit(self)
         # TODO: S3 Validators
         if self.type.lower() == 'local':
             self.location_bar.setValidator(LocalPathValidator())
@@ -151,24 +152,28 @@ class LocalFileListingView(FileListingTreeView):
             QDir.AllEntries | QDir.NoDotAndDotDot | QDir.AllDirs | QDir.Hidden
         )
         model.setRootPath(self.root)
+        prev_model = self.model()
+        prev_selection_model = self.selectionModel()
         self.setModel(model)
         self.setRootIndex(model.index(self.root))
+        if prev_model:
+            prev_model.deleteLater()
+        if prev_selection_model:
+            prev_selection_model.deleteLater()
 
     @Slot()
     def change_dir(self):
-        # TODO: Need to re-evaluate if tracking self.root outside of
-        #       self.user is still necessary
-        self.root = self.location_bar.text()
-        self.user['Root'] = self.root
-        self.root_changed.emit(self.root)
-        self.refresh()
+        if (location := self.location_bar.text()) != self.root:
+            self.root = location
+            self.user['Root'] = location
+            self.root_changed.emit(location)
+            self.refresh()
 
     @Slot(str)
     def update_location_bar(self, path):
         if os.path.isdir(path):
-            self.root = path
             self.location_bar.clear()
-            self.location_bar.insert(self.root)
+            self.location_bar.insert(path)
             self.change_dir()
 
     @Slot(str)
@@ -293,12 +298,11 @@ class BaseS3FileListingView(FileListingTreeView):
 
     @Slot()
     def change_dir(self):
-        # TODO: This is slow in the view. Use the main info_bar
-        #       to inform the user the move has started
-        self.root = self.location_bar.text()
-        self.user['Root'] = self.root
-        self.root_changed.emit(self.root)
-        self.refresh()
+        if (location := self.location_bar.text()) != self.root:
+            self.root = location
+            self.user['Root'] = location
+            self.root_changed.emit(location)
+            self.refresh()
 
     @Slot(str)
     def update_location_bar(self, root):
@@ -337,9 +341,15 @@ class S3FileListingView(BaseS3FileListingView):
         self.collapsed.disconnect()
         self.expanded.disconnect()
         model = S3FilesTreeModel(user=self.user)
+        prev_model = self.model()
+        prev_selection_model = self.selectionModel()
         self.setModel(model)
         self.collapsed.connect(self.model().view_collapsed)
         self.expanded.connect(self.model().view_expanded)
+        if prev_model:
+            prev_model.deleteLater()
+        if prev_selection_model:
+            prev_selection_model.deleteLater()
 
 
 class DigitalOceanFileListingView(BaseS3FileListingView):
@@ -370,6 +380,12 @@ class DigitalOceanFileListingView(BaseS3FileListingView):
         self.collapsed.disconnect()
         self.expanded.disconnect()
         model = DigitalOceanFilesTreeModel(user=self.user)
+        prev_model = self.model()
+        prev_selection_model = self.selectionModel()
         self.setModel(model)
         self.collapsed.connect(self.model().view_collapsed)
         self.expanded.connect(self.model().view_expanded)
+        if prev_model:
+            prev_model.deleteLater()
+        if prev_selection_model:
+            prev_selection_model.deleteLater()

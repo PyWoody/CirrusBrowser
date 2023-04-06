@@ -7,6 +7,7 @@ from cirrus.items import DigitalOceanItem, S3Item
 from cirrus.statuses import TransferPriority
 
 from PySide6.QtCore import (
+    QAbstractListModel,
     QModelIndex,
     Qt,
     Signal,
@@ -571,3 +572,22 @@ class SearchResultsModel(QStandardItemModel):
             except Exception as e:
                 print(str(e))
                 logging.warn(f'Could not add result: {item!r}')
+
+
+class ListModel(QAbstractListModel):
+
+    def __init__(self, items):
+        super().__init__()
+        self.items = list(items)
+
+    def rowCount(self, parent=QModelIndex()):
+        return len(self.items)
+
+    def data(self, index, role=Qt.DisplayRole):
+        if not index.isValid():
+            return
+        if role == Qt.DisplayRole:
+            return self.items[index.row()]
+
+    def update_items(self, items):
+        self.items = list(items)
