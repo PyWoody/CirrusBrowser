@@ -1,7 +1,5 @@
 import os
 
-from functools import partial
-
 from cirrus import utils
 from cirrus.items import LocalItem
 from cirrus.models import (
@@ -26,8 +24,6 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QHeaderView,
     QLabel,
-    QLineEdit,
-    QListView,
     QPushButton,
     QStyle,
     QTreeView,

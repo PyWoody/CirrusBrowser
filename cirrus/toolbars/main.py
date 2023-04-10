@@ -2,12 +2,11 @@ from functools import partial
 
 from cirrus import settings
 
-from PySide6.QtCore import QSize, Qt, Slot
+from PySide6.QtCore import Qt, Slot
 from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
     QHBoxLayout,
-    QListView,
     QPushButton,
     QSizePolicy,
     QStyle,

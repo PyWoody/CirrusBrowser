@@ -5,7 +5,6 @@ from PySide6.QtWidgets import (
     QAbstractItemView,
     QLineEdit,
     QListView,
-    QSizePolicy,
 )
 
 
