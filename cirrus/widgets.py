@@ -76,5 +76,5 @@ class NavBarListView(QListView):
     @Slot(QModelIndex)
     def on_hover(self, index):
         if not index.isValid():
-            return 
+            return
         self.setCurrentIndex(index)

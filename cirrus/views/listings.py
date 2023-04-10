@@ -99,7 +99,6 @@ class FileListingTreeView(QTreeView):
         window_location_bar_layout.addWidget(self.location_bar)
         return window_location_bar_layout
 
-
     def create_info_bar(self):
         if self.info_bar is not None:
             cls_name = self.__class__.__name__

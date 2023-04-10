@@ -1,9 +1,9 @@
 import logging
 
 from .central import CentralWidgetWindow
-from cirrus import database, toolbars
+from cirrus import actions, database
 
-from PySide6.QtWidgets import QMainWindow
+from PySide6.QtWidgets import QMainWindow, QToolBar
 
 
 class MainWindow(QMainWindow):
@@ -18,7 +18,15 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self.central_widget)
         self.status_bar = self.statusBar()
         self.status_bar.showMessage('Status Bar Test')
-        tool_bar = toolbars.main.create_tool_bar(self.central_widget)
+        tool_bar = QToolBar()
+        tool_bar.setMovable(False)
+        tool_bar.setFloatable(False)
+        tool_bar.addWidget(
+            actions.menus.AddPanelToolButton(self.central_widget)
+        )
+        tool_bar.addWidget(
+            actions.menus.RemovePanelToolButton(self.central_widget)
+        )
         self.addToolBar(tool_bar)
         self.resize(900, 700)
 

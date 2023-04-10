@@ -28,6 +28,7 @@ class BaseListingWindow(QWidget):
 
     @Slot()
     def back(self):
+        # TODO: Re-assess w/ QToolButton
         self.from_nav_btn = True
         self.current_index -= 1
         location = self.history[self.current_index]

@@ -8,6 +8,7 @@ RW_LOCK = QReadWriteLock()
 
 ROOT = os.path.abspath(os.path.dirname(__file__))
 DATA_DIR = os.path.join(ROOT, 'data')
+ICON_DIR = os.path.join(ROOT, 'icons')
 SETUP = os.path.join(DATA_DIR, 'setup.json')
 DATABASE = os.path.join(DATA_DIR, 'transfers.db')
 LOG = os.path.join(ROOT, 'logs', 'cirrus.log')
