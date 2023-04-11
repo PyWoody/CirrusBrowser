@@ -103,6 +103,30 @@ class RemovePanelOptionMenu(QMenu):
         self.parent().remove_splitter_panel(index)
 
 
+class ToggleProcessingTransfers(QAction):
+    
+    def __init__(self, parent):
+        super().__init__(parent)
+        # self.setIconSize(QSize(16, 16))
+        # self.setIconText('Show Transfers')
+        self.setText('T')
+        self.setCheckable(True)
+        self.setToolTip('Start Transfers')
+        self.setStatusTip('Start all pending Transfers')
+        self.triggered.connect(self.toggle)
+
+    @Slot(bool)
+    def toggle(self, checked):
+        if checked:
+            self.parent().executor.start()
+            self.setToolTip('Stop Transfers')
+            self.setStatusTip('Stop all running and pending transfers.')
+        else:
+            self.parent().executor.stop()
+            self.setToolTip('Start Transfers')
+            self.setStatusTip('Start all pending Transfers')
+
+
 class ToggleTransferPanel(QAction):
     
     def __init__(self, parent):
@@ -119,11 +143,6 @@ class ToggleTransferPanel(QAction):
             self.setToolTip('Show Transfers')
             self.setStatusTip('Show the Transfers, Errors, and Completed window.')
         self.triggered.connect(self.toggle)
-
-    @Slot(bool)
-    def clear_status(self, checked):
-        self.setToolTip('')
-        self.setStatusTip('')
 
     @Slot(bool)
     def toggle(self, checked):

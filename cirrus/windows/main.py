@@ -30,7 +30,9 @@ class MainWindow(QMainWindow):
         tool_bar.addSeparator()
         # TODO: Get icons
         # TODO: Toggle Downloads, Uploads, Both
-        # TODO: Stop/Start Transers
+        tool_bar.addAction(
+            actions.menus.ToggleProcessingTransfers(self.central_widget)
+        )
         tool_bar.addAction(
             actions.menus.ToggleTransferPanel(self.central_widget)
         )
