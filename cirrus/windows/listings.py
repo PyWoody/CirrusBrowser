@@ -1,3 +1,5 @@
+from functools import partial
+
 from cirrus.views import (
     DigitalOceanFileListingView,
     LocalFileListingView,
@@ -21,24 +23,25 @@ class BaseListingWindow(QWidget):
         self.view.location_bar.set_model(self.history)
         if not self.view.back_btn.isEnabled():
             self.view.back_btn.setEnabled(True)
-            self.view.back_btn.setFlat(False)
         if self.view.forward_btn.isEnabled():
             self.view.forward_btn.setEnabled(False)
-            self.view.forward_btn.setFlat(True)
 
     @Slot()
     def back(self):
-        # TODO: Re-assess w/ QToolButton
         self.from_nav_btn = True
         self.current_index -= 1
         location = self.history[self.current_index]
         if self.current_index == 0:
             self.view.back_btn.setEnabled(False)
-            self.view.back_btn.setFlat(True)
         if not self.view.forward_btn.isEnabled():
             self.view.forward_btn.setEnabled(True)
-            self.view.forward_btn.setFlat(False)
         self.view.update_location_bar(location)
+
+    @Slot()
+    def back_option(self):
+        self.view.back_btn.menu().build_menu(
+            self.history[:self.current_index]
+        )
 
     @Slot()
     def forward(self):
@@ -47,11 +50,15 @@ class BaseListingWindow(QWidget):
         location = self.history[self.current_index]
         if self.current_index == (len(self.history) - 1):
             self.view.forward_btn.setEnabled(False)
-            self.view.forward_btn.setFlat(True)
         if not self.view.back_btn.isEnabled():
             self.view.back_btn.setEnabled(True)
-            self.view.back_btn.setFlat(False)
         self.view.update_location_bar(location)
+
+    @Slot()
+    def forward_option(self):
+        self.view.forward_btn.menu().build_menu(
+            self.history[self.current_index:]
+        )
 
 
 class DigitOceanFileListingWindow(BaseListingWindow):
@@ -105,7 +112,9 @@ class LocalFileListingWindow(BaseListingWindow):
 
         self.view.root_changed.connect(self.handle_root_changes)
         self.view.back_btn.clicked.connect(self.back)
+        self.view.back_btn.menu().aboutToShow.connect(self.back_option)
         self.view.forward_btn.clicked.connect(self.forward)
+        self.view.forward_btn.menu().aboutToShow.connect(self.forward_option)
         self.history.append(self.view.location_bar.text())
 
 

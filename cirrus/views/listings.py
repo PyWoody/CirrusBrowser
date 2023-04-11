@@ -1,6 +1,6 @@
 import os
 
-from cirrus import utils
+from cirrus import actions, utils
 from cirrus.items import LocalItem
 from cirrus.models import (
     DigitalOceanFilesTreeModel,
@@ -24,8 +24,10 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QHeaderView,
     QLabel,
+    QMenu,
     QPushButton,
     QStyle,
+    QToolButton,
     QTreeView,
 )
 
@@ -66,18 +68,10 @@ class FileListingTreeView(QTreeView):
         if self.location_bar is not None:
             cls_name = self.__class__.__name__
             raise Exception(f'location_bar already exists for {cls_name}.')
-        self.back_btn = QPushButton()
-        icon = QApplication.style().standardIcon(QStyle.SP_ArrowBack)
-        self.back_btn.setIcon(icon)
-        self.back_btn.setFixedSize(20, 20)
+        self.back_btn = actions.navigation.BackNavigationButton(self)
         self.back_btn.setEnabled(False)
-        self.back_btn.setFlat(True)
-        self.forward_btn = QPushButton()
-        icon = QApplication.style().standardIcon(QStyle.SP_ArrowForward)
-        self.forward_btn.setIcon(icon)
-        self.forward_btn.setFixedSize(20, 20)
+        self.forward_btn = actions.navigation.ForwardNavigationButton(self)
         self.forward_btn.setEnabled(False)
-        self.forward_btn.setFlat(True)
         refresh_btn = QPushButton()
         icon = QApplication.style().standardIcon(QStyle.SP_BrowserReload)
         refresh_btn.setIcon(icon)

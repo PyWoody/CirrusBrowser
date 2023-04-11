@@ -1,9 +1,11 @@
+import os
+
 from functools import partial
 
 from cirrus import settings
 
 from PySide6.QtCore import Slot
-from PySide6.QtGui import QAction
+from PySide6.QtGui import QAction, QIcon
 from PySide6.QtWidgets import QMenu, QToolButton
 
 
@@ -20,9 +22,7 @@ class AddPanelDefaultAction(QAction):
 
     def __init__(self, parent):
         super().__init__(parent)
-        # self.setIconSize(QSize(16, 16))
-        # self.setIconText('Add')
-        self.setText('+')
+        self.setIcon(QIcon(os.path.join(settings.ICON_DIR, 'plus.svg')))
         self.setToolTip('Add New Panel')
         self.setStatusTip('Opens the Add New Panel dialog.')
         self.triggered.connect(self.process)
@@ -45,6 +45,7 @@ class AddPanelOptionMenu(QMenu):
             text = f'({account["Type"]}) {account["Root"]}'
             action = QAction(text, self)
             action.triggered.connect(partial(self.process, account))
+            action.setStatusTip(f'Add {text} panel.')
             self.addAction(action)
 
     @Slot(dict)
@@ -65,9 +66,7 @@ class RemovePanelDefaultAction(QAction):
 
     def __init__(self, parent):
         super().__init__(parent)
-        # self.setIconSize(QSize(16, 16))
-        # self.setIconText('Add')
-        self.setText('-')
+        self.setIcon(QIcon(os.path.join(settings.ICON_DIR, 'minus.svg')))
         self.setToolTip('Remove Last Panel')
         self.setStatusTip('Removes the Last Panel from the window.')
         self.hovered.connect(self.update_tool_tip)
@@ -96,6 +95,7 @@ class RemovePanelOptionMenu(QMenu):
             text = f'({account["Type"]}) {account["Root"]}'
             action = QAction(text, self)
             action.triggered.connect(partial(self.process, index))
+            action.setStatusTip(f'Remove {text} panel.')
             self.addAction(action)
 
     @Slot(int)
@@ -107,9 +107,9 @@ class ToggleProcessingTransfers(QAction):
     
     def __init__(self, parent):
         super().__init__(parent)
-        # self.setIconSize(QSize(16, 16))
-        # self.setIconText('Show Transfers')
-        self.setText('T')
+        self.setIcon(
+            QIcon(os.path.join(settings.ICON_DIR, 'data-transfer-both.svg'))
+        )
         self.setCheckable(True)
         self.setToolTip('Start Transfers')
         self.setStatusTip('Start all pending Transfers')
@@ -131,15 +131,18 @@ class ToggleTransferPanel(QAction):
     
     def __init__(self, parent):
         super().__init__(parent)
-        # self.setIconSize(QSize(16, 16))
-        # self.setIconText('Show Transfers')
-        self.setText('S')
         self.setCheckable(True)
         if settings.transfer_window_visible():
             self.setChecked(True)
+            self.setIcon(
+                QIcon(os.path.join(settings.ICON_DIR, 'eye-empty.svg'))
+            )
             self.setToolTip('Hide Transfers')
             self.setStatusTip('Hide the Transfers, Errors, and Completed window.')
         else:
+            self.setIcon(
+                QIcon(os.path.join(settings.ICON_DIR, 'eye-off.svg'))
+            )
             self.setToolTip('Show Transfers')
             self.setStatusTip('Show the Transfers, Errors, and Completed window.')
         self.triggered.connect(self.toggle)
@@ -149,9 +152,15 @@ class ToggleTransferPanel(QAction):
         settings.update_transfer_window_status(checked)
         if checked:
             self.parent().transfers_window.show()
+            self.setIcon(
+                QIcon(os.path.join(settings.ICON_DIR, 'eye-empty.svg'))
+            )
             self.setToolTip('Hide Transfers')
             self.setStatusTip('Hide the Transfers, Errors, and Completed window.')
         else:
             self.parent().transfers_window.hide()
+            self.setIcon(
+                QIcon(os.path.join(settings.ICON_DIR, 'eye-off.svg'))
+            )
             self.setToolTip('Show Transfers')
             self.setStatusTip('Show the Transfers, Errors, and Completed window.')

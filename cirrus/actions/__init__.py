@@ -1,9 +1,20 @@
-from . import base, listings, local, menus, s3, search, signals, transfers
+from . import (
+    base,
+    listings,
+    local,
+    navigation,
+    menus,
+    s3,
+    search,
+    signals,
+    transfers,
+)
 
 __all__ = [
     'base',
     'listings',
     'local',
+    'navigation',
     'menus',
     's3',
     'search',
