@@ -101,3 +101,38 @@ class RemovePanelOptionMenu(QMenu):
     @Slot(int)
     def process(self, index):
         self.parent().remove_splitter_panel(index)
+
+
+class ToggleTransferPanel(QAction):
+    
+    def __init__(self, parent):
+        super().__init__(parent)
+        # self.setIconSize(QSize(16, 16))
+        # self.setIconText('Show Transfers')
+        self.setText('S')
+        self.setCheckable(True)
+        if settings.transfer_window_visible():
+            self.setChecked(True)
+            self.setToolTip('Hide Transfers')
+            self.setStatusTip('Hide the Transfers, Errors, and Completed window.')
+        else:
+            self.setToolTip('Show Transfers')
+            self.setStatusTip('Show the Transfers, Errors, and Completed window.')
+        self.triggered.connect(self.toggle)
+
+    @Slot(bool)
+    def clear_status(self, checked):
+        self.setToolTip('')
+        self.setStatusTip('')
+
+    @Slot(bool)
+    def toggle(self, checked):
+        settings.update_transfer_window_status(checked)
+        if checked:
+            self.parent().transfers_window.show()
+            self.setToolTip('Hide Transfers')
+            self.setStatusTip('Hide the Transfers, Errors, and Completed window.')
+        else:
+            self.parent().transfers_window.hide()
+            self.setToolTip('Show Transfers')
+            self.setStatusTip('Show the Transfers, Errors, and Completed window.')
