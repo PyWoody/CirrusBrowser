@@ -23,6 +23,7 @@ class AddPanelDefaultAction(QAction):
     def __init__(self, parent):
         super().__init__(parent)
         self.setIcon(QIcon(os.path.join(settings.ICON_DIR, 'plus.svg')))
+        self.setText('Add Panel')
         self.setToolTip('Add New Panel')
         self.setStatusTip('Opens the Add New Panel dialog.')
         self.triggered.connect(self.process)
@@ -67,6 +68,7 @@ class RemovePanelDefaultAction(QAction):
     def __init__(self, parent):
         super().__init__(parent)
         self.setIcon(QIcon(os.path.join(settings.ICON_DIR, 'minus.svg')))
+        self.setText('Remove Panel')
         self.setToolTip('Remove Last Panel')
         self.setStatusTip('Removes the Last Panel from the window.')
         self.hovered.connect(self.update_tool_tip)
@@ -111,6 +113,7 @@ class ToggleProcessingTransfers(QAction):
             QIcon(os.path.join(settings.ICON_DIR, 'data-transfer-both.svg'))
         )
         self.setCheckable(True)
+        self.setText('Start Transfers')
         self.setToolTip('Start Transfers')
         self.setStatusTip('Start all pending Transfers')
         self.triggered.connect(self.toggle)
@@ -119,10 +122,12 @@ class ToggleProcessingTransfers(QAction):
     def toggle(self, checked):
         if checked:
             self.parent().executor.start()
+            self.setText('Stop Transfers')
             self.setToolTip('Stop Transfers')
             self.setStatusTip('Stop all running and pending transfers.')
         else:
             self.parent().executor.stop()
+            self.setText('Start Transfers')
             self.setToolTip('Start Transfers')
             self.setStatusTip('Start all pending Transfers')
 
@@ -134,12 +139,14 @@ class ToggleTransferPanel(QAction):
         self.setCheckable(True)
         if settings.transfer_window_visible():
             self.setChecked(True)
+            self.setText('Hide Transfer Window')
             self.setIcon(
                 QIcon(os.path.join(settings.ICON_DIR, 'eye-empty.svg'))
             )
             self.setToolTip('Hide Transfers')
             self.setStatusTip('Hide the Transfers, Errors, and Completed window.')
         else:
+            self.setText('Show Transfer Window')
             self.setIcon(
                 QIcon(os.path.join(settings.ICON_DIR, 'eye-off.svg'))
             )
@@ -152,6 +159,7 @@ class ToggleTransferPanel(QAction):
         settings.update_transfer_window_status(checked)
         if checked:
             self.parent().transfers_window.show()
+            self.setText('Hide Transfer Window')
             self.setIcon(
                 QIcon(os.path.join(settings.ICON_DIR, 'eye-empty.svg'))
             )
@@ -159,6 +167,7 @@ class ToggleTransferPanel(QAction):
             self.setStatusTip('Hide the Transfers, Errors, and Completed window.')
         else:
             self.parent().transfers_window.hide()
+            self.setText('Show Transfer Window')
             self.setIcon(
                 QIcon(os.path.join(settings.ICON_DIR, 'eye-off.svg'))
             )

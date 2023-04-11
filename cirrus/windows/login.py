@@ -11,6 +11,7 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QDialog,
     QFormLayout,
+    QFrame,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -22,6 +23,7 @@ from PySide6.QtWidgets import (
 )
 
 # TODO: CTRL+CLICK to setup multiple splitter panels at login
+# TODO: Style
 
 
 class LoginWindow(QDialog):
@@ -29,8 +31,9 @@ class LoginWindow(QDialog):
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.setWindowTitle('Add Account')
         self.accounts = []
-        self.resize(400, 600)
+        self.resize(300, 200)
         self.stack = QStackedLayout()
         self.s3_login = self.setup_s3_login()
         self.do_login = self.setup_do_login()
@@ -50,6 +53,7 @@ class LoginWindow(QDialog):
     def setup_landing_page(self):
         widget = QWidget()
         layout = QVBoxLayout()
+        layout.addStretch(1)
         if users := list(settings.saved_users()):
             for user in users:
                 account_selection = AccountLabel(user)
@@ -59,19 +63,28 @@ class LoginWindow(QDialog):
                 account_selection.clicked.connect(self.close)
                 layout.addWidget(account_selection)
         layout.addWidget(HLine())
-        layout.addWidget(QLabel('Add New Account'))
+        new_account_label = QLabel('<strong>Add New Account</strong>')
+        new_account_label.setAlignment(Qt.AlignHCenter)
+        layout.addWidget(new_account_label)
         services = [
-            ('S3', self.s3_login),
-            ('Digital Ocean', self.do_login),
-            ('DropBox (Not Implemented)', self.dropbox_login),
-            ('SSH (Not Implemented)', self.ssh_login),
+            ('&Amazon S3', self.s3_login),
+            ('Digital &Ocean', self.do_login),
+            ('&DropBox (Not Implemented)', self.dropbox_login),
+            ('&SSH (Not Implemented)', self.ssh_login),
         ]
         for service, service_widget in services:
             btn = QPushButton(service)
+            btn.setMinimumHeight(35)
+            btn.setStyleSheet('text-align: left; padding-left: 30px;')
             btn.clicked.connect(
                 partial(self.stack.setCurrentWidget, service_widget)
             )
             layout.addWidget(btn)
+        btn = QPushButton('&Cancel')
+        btn.setMinimumHeight(35)
+        btn.clicked.connect(self.close)
+        layout.addWidget(btn)
+        layout.addStretch(1)
         widget.setLayout(layout)
         return widget
 
@@ -90,7 +103,7 @@ class LoginWindow(QDialog):
         layout.addLayout(form)
         btn_layout = QHBoxLayout()
         ok_btn = QPushButton('OK')
-        cancel_btn = QPushButton('Cancel')
+        cancel_btn = QPushButton('&Cancel')
         cancel_btn.clicked.connect(
             partial(self.stack.setCurrentWidget, self.landing_page)
         )
@@ -113,12 +126,13 @@ class LoginWindow(QDialog):
         secret_key_edit.setEchoMode(QLineEdit.Password)
         form = QFormLayout()
         form.addRow('Nickname', nickname_edit)
-        form.addRow('Region Name', region_edit)
-        form.addRow('Root', root_edit)
-        form.addRow('Acecss Key', key_edit)
-        form.addRow('Secret Access Key*', secret_key_edit)
-        btn_layout = QHBoxLayout()
-        login_btn = QPushButton('Login')
+        form.addRow('Region &Name', region_edit)
+        form.addRow('&Root', root_edit)
+        form.addRow('&Acecss Key', key_edit)
+        form.addRow('&Secret Access Key*', secret_key_edit)
+        btn_layout = QVBoxLayout()
+        login_btn = QPushButton('&Login')
+        login_btn.setMinimumHeight(35)
         login_partial = partial(
             self.test_s3_credentials,
             'Amazon S3',
@@ -132,7 +146,8 @@ class LoginWindow(QDialog):
         region_edit.returnPressed.connect(login_partial)
         key_edit.returnPressed.connect(login_partial)
         secret_key_edit.returnPressed.connect(login_partial)
-        cancel_btn = QPushButton('Cancel')
+        cancel_btn = QPushButton('&Cancel')
+        cancel_btn.setMinimumHeight(35)
         cancel_btn.clicked.connect(partial(self.stack.setCurrentIndex, 0))
         btn_layout.addWidget(login_btn)
         btn_layout.addWidget(cancel_btn)
@@ -160,13 +175,14 @@ class LoginWindow(QDialog):
         secret_key_edit.setEchoMode(QLineEdit.Password)
         form = QFormLayout()
         form.addRow('Nickname', nickname_edit)
-        form.addRow('Region Name', region_edit)
-        form.addRow('Endpoint URL', endpoint_edit)
-        form.addRow('Root', root_edit)
-        form.addRow('Acecss Key', key_edit)
-        form.addRow('Secret Access Key', secret_key_edit)
-        btn_layout = QHBoxLayout()
-        login_btn = QPushButton('Login')
+        form.addRow('Region &Name', region_edit)
+        form.addRow('&Endpoint URL', endpoint_edit)
+        form.addRow('&Root', root_edit)
+        form.addRow('&Acecss Key', key_edit)
+        form.addRow('&Secret Access Key', secret_key_edit)
+        btn_layout = QVBoxLayout()
+        login_btn = QPushButton('&Login')
+        login_btn.setMinimumHeight(35)
         login_partial = partial(
             self.test_do_credentials,
             'Digital Ocean',
@@ -183,7 +199,8 @@ class LoginWindow(QDialog):
         root_edit.returnPressed.connect(login_partial)
         key_edit.returnPressed.connect(login_partial)
         secret_key_edit.returnPressed.connect(login_partial)
-        cancel_btn = QPushButton('Cancel')
+        cancel_btn = QPushButton('&Cancel')
+        cancel_btn.setMinimumHeight(35)
         cancel_btn.clicked.connect(partial(self.stack.setCurrentIndex, 0))
         btn_layout.addWidget(login_btn)
         btn_layout.addWidget(cancel_btn)
@@ -196,7 +213,8 @@ class LoginWindow(QDialog):
         widget = QWidget()
         layout = QVBoxLayout()
         layout.addWidget(QLabel('Not implemented.'))
-        cancel_btn = QPushButton('Cancel')
+        cancel_btn = QPushButton('&Cancel')
+        cancel_btn.setMinimumHeight(35)
         cancel_btn.clicked.connect(partial(self.stack.setCurrentIndex, 0))
         layout.addWidget(cancel_btn)
         widget.setLayout(layout)
@@ -206,7 +224,8 @@ class LoginWindow(QDialog):
         widget = QWidget()
         layout = QVBoxLayout()
         layout.addWidget(QLabel('Not implemented.'))
-        cancel_btn = QPushButton('Cancel')
+        cancel_btn = QPushButton('&Cancel')
+        cancel_btn.setMinimumHeight(35)
         cancel_btn.clicked.connect(partial(self.stack.setCurrentIndex, 0))
         layout.addWidget(cancel_btn)
         widget.setLayout(layout)
@@ -358,7 +377,9 @@ class AccountLabel(QLabel):
 
     def __init__(self, account, parent=None):
         super().__init__(parent)
-        self.set_default_stylesheet()
+        self.setMouseTracking(True)
+        self.setFrameShape(QFrame.Panel)
+        self.setFrameShadow(QFrame.Raised)
         self.setTextInteractionFlags(
             Qt.TextSelectableByMouse | Qt.TextSelectableByKeyboard
         )
@@ -370,29 +391,17 @@ class AccountLabel(QLabel):
         )
 
     def mousePressEvent(self, event):
-        # Change styling to notify user of click
-        self.set_selected_stylesheet()
+        if not self.frameShadow() == QFrame.Sunken:
+            self.setFrameShadow(QFrame.Sunken)
         return super().mousePressEvent(event)
 
     def mouseReleaseEvent(self, event):
-        self.set_default_stylesheet()
         if self.hasSelectedText():
+            # Allows for copying-and-pasting w/o selecting
             return super().mouseReleaseEvent(event)
+        if not self.frameShadow() == QFrame.Plain:
+            self.setFrameShadow(QFrame.Plain)
         self.clicked.emit()
-
-    def set_default_stylesheet(self):
-        css = '''
-        QLabel {
-            border-color: yellow;
-            border-width: 5px;
-            border-style: solid;
-        }
-        QLabel:hover {border-color: red;}
-        '''
-        self.setStyleSheet(css)
-
-    def set_selected_stylesheet(self):
-        self.setStyleSheet('background-color: green')
 
 
 def root_handler(label):
