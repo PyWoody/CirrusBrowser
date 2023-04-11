@@ -1,6 +1,6 @@
 import os
 
-from cirrus import actions, utils
+from cirrus import actions, settings, utils
 from cirrus.items import LocalItem
 from cirrus.models import (
     DigitalOceanFilesTreeModel,
@@ -18,6 +18,7 @@ from PySide6.QtCore import (
     Signal,
     Slot,
 )
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QApplication,
@@ -73,10 +74,10 @@ class FileListingTreeView(QTreeView):
         self.forward_btn = actions.navigation.ForwardNavigationButton(self)
         self.forward_btn.setEnabled(False)
         refresh_btn = QPushButton()
-        icon = QApplication.style().standardIcon(QStyle.SP_BrowserReload)
-        refresh_btn.setIcon(icon)
+        refresh_btn.setIcon(
+            QIcon(os.path.join(settings.ICON_DIR, 'refresh.svg'))
+        )
         refresh_btn.clicked.connect(self.refresh)
-        refresh_btn.setFixedSize(20, 20)
         refresh_btn.setFlat(True)
         self.location_bar = NavBarLineEdit(self)
         # TODO: S3 Validators
