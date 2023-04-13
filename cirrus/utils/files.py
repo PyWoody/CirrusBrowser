@@ -23,12 +23,13 @@ def human_to_bytes(num_size):
     if search := size_re.search( num_size):
         num, size = search.groups()
         num = float(num)
-        if size == 'GB':
+        size = size.lower()
+        if size == 'gb':
             return num * GB
-        if size == 'MB':
+        if size == 'mb':
             return num * MB
-        if size == 'KB':
+        if size == 'kb':
             return num * KB
-        if size == 'B':
+        if size == 'b':
             return num
     raise ValueError(num_size)
