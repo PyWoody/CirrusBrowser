@@ -106,7 +106,7 @@ class RemovePanelOptionMenu(QMenu):
 
 
 class ToggleProcessingTransfers(QAction):
-    
+
     def __init__(self, parent):
         super().__init__(parent)
         self.setIcon(
@@ -133,7 +133,7 @@ class ToggleProcessingTransfers(QAction):
 
 
 class ToggleTransferPanel(QAction):
-    
+
     def __init__(self, parent):
         super().__init__(parent)
         self.setCheckable(True)

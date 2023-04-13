@@ -5,6 +5,7 @@ from PySide6.QtCore import QObject, Signal
 
 class ActionSignals(QObject):
 
+    accepted = Signal()
     aborted = Signal()
     error = Signal(str)
     finished = Signal(str)

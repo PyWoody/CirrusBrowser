@@ -22,11 +22,14 @@ class CreateDirectoryAction(BaseAction):
         self.setText('Create Directory')
         self.setStatusTip('Create a directory from the current location.')
 
-    def exec(self, *args, **kwargs):
+    def show_dialog(self, *args, **kwargs):
         self.dialog = dialogs.CreateDirectoryDialog(
             self.parent, folders=self.folders
         )
-        return self.dialog.exec()
+        self.dialog.accepted.connect(self.accepted.emit)
+        self.dialog.setModal(True)
+        self.dialog.show()
+        return True
 
     def runnable(self):
         return CreateDirectoryRunnable(self.parent, self.dialog)
@@ -197,6 +200,7 @@ class RemoveItemsAction(BaseAction):
     def __init__(self, parent, files, folders):
         super().__init__(parent)
         self.parent = parent
+        self.dialog = None
         plural_file = 's' if len(files) > 1 else ''
         plural_folder = 's' if len(folders) > 1 else ''
         self.items = files + folders
@@ -213,9 +217,12 @@ class RemoveItemsAction(BaseAction):
         self.setText(help_text)
         self.setStatusTip('Delete the selected items')
 
-    def exec(self, *args, **kwargs):
-        dialog = dialogs.ConfirmDeleteDialog(self.parent)
-        return dialog.exec()
+    def show_dialog(self, *args, **kwargs):
+        self.dialog = dialogs.ConfirmDeleteDialog(self.parent)
+        self.dialog.accepted.connect(self.accepted.emit)
+        self.dialog.setModal(True)
+        self.dialog.show()
+        return True
 
     def runnable(self):
         return RemoveItemsRunnable(self.parent, self.items)
@@ -238,7 +245,8 @@ class CreateDirectoryRunnable(BaseRunnable):
         for _, checkbox, label in self.dialog.folder_options:
             if checkbox.isChecked():
                 path = utils.html_to_text(label.text())
-                item(path, is_dir=True).makedirs()
+                user = items.new_user(self.parent.user, path)
+                item(user, is_dir=True).makedirs()
         self.signals.finished.emit(f'Testing - {self.parent.root} - FINISHED')
 
 

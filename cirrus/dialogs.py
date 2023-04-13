@@ -48,6 +48,7 @@ class ConfirmDeleteDialog(QDialog):
 
 
 class CreateDirectoryDialog(QDialog):
+
     def __init__(self, parent=None, folders=None):
         super().__init__(parent)
         # TODO: Deselect/Select All
@@ -158,10 +159,11 @@ class SearchItemsDialog(QDialog):
         if folders:
             self.folders = folders
         else:
+            user = self.parent.user.copy()
             if self.parent.type == 's3':
-                self.folders = [items.S3Item(self.parent.root, is_dir=True)]
+                self.folders = [items.S3Item(user, is_dir=True)]
             elif self.parent.type == 'local':
-                self.folders = [items.LocalItem(self.parent.root, is_dir=True)]
+                self.folders = [items.LocalItem(user, is_dir=True)]
             else:
                 raise ValueError
         self.setWindowTitle('Search Items')

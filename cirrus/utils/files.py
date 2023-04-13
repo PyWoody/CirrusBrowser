@@ -20,7 +20,7 @@ def bytes_to_human(size):
 
 def human_to_bytes(num_size):
     size_re = re.compile(r'^([\d\.]*)\s?([A-Z]*)', re.IGNORCASE)
-    if search := size_re.search( num_size):
+    if search := size_re.search(num_size):
         num, size = search.groups()
         num = float(num)
         size = size.lower()

@@ -130,6 +130,25 @@ class CentralWidgetWindow(QWidget):  # Terrible name
         menu.popup(pos)
 
     def menu_item_selected(self, action):
+        if action.show_dialog():
+            widget = self.transfers_window.tabs.currentWidget()
+            action.accepted.connect(
+                partial(
+                    self.menu_item_selected_cb, widget, action
+                )
+            )
+
+    def menu_item_selected_cb(self, widget, action):
+        runnable = action.runnable()
+        runnable.signals.aborted.connect(partial(print, 'Aborted!'))
+        runnable.signals.process_queue.connect(self.start_queue_tmp)
+        runnable.signals.select.connect(
+            widget.model().delta_select
+        )
+        runnable.signals.callback.connect(utils.execute_callback)
+        self.threadpool.start(runnable)
+
+    def og_menu_item_selected(self, action):
         # TODO: Move away from exec. Transition to setModal
         if action.exec():
             widget = self.transfers_window.tabs.currentWidget()

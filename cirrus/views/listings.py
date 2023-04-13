@@ -21,14 +21,10 @@ from PySide6.QtCore import (
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QAbstractItemView,
-    QApplication,
     QHBoxLayout,
     QHeaderView,
     QLabel,
-    QMenu,
     QPushButton,
-    QStyle,
-    QToolButton,
     QTreeView,
 )
 
@@ -234,8 +230,8 @@ class BaseS3FileListingView(FileListingTreeView):
         self.root = None
 
     @classmethod
-    def clone(cls, root, parent):
-        return cls(root=root, parent=parent)
+    def clone(cls, user, parent):
+        return cls(user, parent=parent)
 
     @Slot(QModelIndex)
     def item_double_clicked(self, index):

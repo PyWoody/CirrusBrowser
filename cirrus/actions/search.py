@@ -23,11 +23,14 @@ class SearchAction(BaseAction):
             'Advanced controls for filtering with additional options'
         )
 
-    def exec(self):
+    def show_dialog(self):
         self.dialog = dialogs.SearchItemsDialog(
             parent=self.parent, folders=self.folders
         )
-        return self.dialog.exec()
+        self.dialog.accepted.connect(self.accepted.emit)
+        self.dialog.setModal(True)
+        self.dialog.show()
+        return True
 
     def runnable(self):
         return SearchRunnable(self.parent, self.dialog)
@@ -45,11 +48,14 @@ class TransferFilterAction(BaseAction):
             'Advanced controls for filtering with additional options'
         )
 
-    def exec(self):
+    def show_dialog(self):
         self.dialog = dialogs.SearchItemsDialog(
             parent=self.parent, folders=self.folders
         )
-        return self.dialog.exec()
+        self.dialog.accepted.connect(self.accepted.emit)
+        self.dialog.setModal(True)
+        self.dialog.show()
+        return True
 
     def runnable(self):
         return TransferFilterRunnable(self.parent, self.dialog)

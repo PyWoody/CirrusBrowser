@@ -1,5 +1,5 @@
 from PySide6.QtGui import QAction
-from PySide6.QtCore import QRunnable
+from PySide6.QtCore import QRunnable, Signal
 
 
 class BaseRunnable(QRunnable):
@@ -11,9 +11,10 @@ class BaseRunnable(QRunnable):
 
 
 class BaseAction(QAction):
+    accepted = Signal()
 
-    def exec(self, *args, **kwargs):
-        return True
+    def show_dialog(self, *args, **kwargs):
+        return False
 
     def runnable(self, *args, **kwargs):
         raise NotImplementedError(

@@ -1,5 +1,3 @@
-from functools import partial
-
 from cirrus.views import (
     DigitalOceanFileListingView,
     LocalFileListingView,

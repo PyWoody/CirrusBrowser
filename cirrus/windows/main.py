@@ -52,7 +52,7 @@ class MainWindow(QMainWindow):
         tool_bar.addAction(toggle_transfers_panel_action)
         self.addToolBar(tool_bar)
 
-        # Menu
+        # Menu Bar
         menu = self.menuBar()
 
         file_menu = menu.addMenu('&File')
