@@ -1,15 +1,17 @@
 import re
 
 
+GB = 1024 * 1024 * 1024
+MB = 1024 * 1024
+KB = 1024
+
+
 def bytes_to_human(size):
-    gb = 1024 * 1024 * 1024
-    mb = 1024 * 1024
-    kb = 1024
-    if size > gb:
+    if size > GB:
         return f'{size / gb:.2f} GB'
-    elif size > mb:
+    elif size > MB:
         return f'{size / mb:.2f} MB'
-    elif size > kb:
+    elif size > KB:
         return f'{size / kb:.2f} KB'
     if size < 1:
         size = '<1'
@@ -17,16 +19,16 @@ def bytes_to_human(size):
 
 
 def human_to_bytes(num_size):
-    size_re = re.compile(r'^([\d\.]*)\s?([A-Z]*)')
-    if search := re.search(size_re, num_size):
+    size_re = re.compile(r'^([\d\.]*)\s?([A-Z]*)', re.IGNORCASE)
+    if search := size_re.search( num_size):
         num, size = search.groups()
         num = float(num)
         if size == 'GB':
-            return num * (1024 * 1024 * 1024)
+            return num * GB
         if size == 'MB':
-            return num * (1024 * 1024)
+            return num * MB
         if size == 'KB':
-            return num * 1024
+            return num * KB
         if size == 'B':
             return num
     raise ValueError(num_size)
