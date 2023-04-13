@@ -8,11 +8,11 @@ KB = 1024
 
 def bytes_to_human(size):
     if size > GB:
-        return f'{size / gb:.2f} GB'
+        return f'{size / GB:.2f} GB'
     elif size > MB:
-        return f'{size / mb:.2f} MB'
+        return f'{size / MB:.2f} MB'
     elif size > KB:
-        return f'{size / kb:.2f} KB'
+        return f'{size / KB:.2f} KB'
     if size < 1:
         size = '<1'
     return f'{size} bytes'
