@@ -162,10 +162,12 @@ class SearchItemsDialog(QDialog):
             user = self.parent.user.copy()
             if self.parent.type == 's3':
                 self.folders = [items.S3Item(user, is_dir=True)]
+            if self.parent.type == 'digital ocean':
+                self.folders = [items.DigitalOceanItem(user, is_dir=True)]
             elif self.parent.type == 'local':
                 self.folders = [items.LocalItem(user, is_dir=True)]
             else:
-                raise ValueError
+                raise ValueError(f'No Item-type for {self.parent.type}')
         self.setWindowTitle('Search Items')
         self.recursive = False
         self.button_box = QDialogButtonBox()

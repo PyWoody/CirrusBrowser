@@ -3,6 +3,7 @@ import os
 from functools import partial
 
 from cirrus import settings
+from .search import SearchAction
 
 from PySide6.QtCore import Slot
 from PySide6.QtGui import QAction, QIcon
@@ -105,6 +106,28 @@ class RemovePanelOptionMenu(QMenu):
         self.parent().remove_splitter_panel(index)
 
 
+class BuildSearchMenu(QMenu):
+
+    def __init__(self, parent):
+        super().__init__('Search', parent)
+        self.setIcon(QIcon(os.path.join(settings.ICON_DIR, 'search.svg')))
+        self.aboutToShow.connect(self.build_menu)
+
+    def build_menu(self):
+        self.clear()
+        for panel, _ in self.parent().splitter_listing_panels:
+            action = SearchAction(panel.view)
+            action.setIcon(QIcon())
+            cap_type = ' '.join(
+                i.capitalize() for i in panel.view.type.split(' ')
+            )
+            action.setText(f'({cap_type}) {panel.view.root}')
+            action.triggered.connect(
+                partial(self.parent().menu_item_selected, action)
+            )
+            self.addAction(action)
+
+
 class ToggleProcessingTransfers(QAction):
 
     def __init__(self, parent):
@@ -144,14 +167,18 @@ class ToggleTransferPanel(QAction):
                 QIcon(os.path.join(settings.ICON_DIR, 'eye-empty.svg'))
             )
             self.setToolTip('Hide Transfers')
-            self.setStatusTip('Hide the Transfers, Errors, and Completed window.')
+            self.setStatusTip(
+                'Hide the Transfers, Errors, and Completed window.'
+            )
         else:
             self.setText('Show Transfer Window')
             self.setIcon(
                 QIcon(os.path.join(settings.ICON_DIR, 'eye-off.svg'))
             )
             self.setToolTip('Show Transfers')
-            self.setStatusTip('Show the Transfers, Errors, and Completed window.')
+            self.setStatusTip(
+                'Show the Transfers, Errors, and Completed window.'
+            )
         self.triggered.connect(self.toggle)
 
     @Slot(bool)
@@ -164,7 +191,9 @@ class ToggleTransferPanel(QAction):
                 QIcon(os.path.join(settings.ICON_DIR, 'eye-empty.svg'))
             )
             self.setToolTip('Hide Transfers')
-            self.setStatusTip('Hide the Transfers, Errors, and Completed window.')
+            self.setStatusTip(
+                'Hide the Transfers, Errors, and Completed window.'
+            )
         else:
             self.parent().transfers_window.hide()
             self.setText('Show Transfer Window')
@@ -172,4 +201,6 @@ class ToggleTransferPanel(QAction):
                 QIcon(os.path.join(settings.ICON_DIR, 'eye-off.svg'))
             )
             self.setToolTip('Show Transfers')
-            self.setStatusTip('Show the Transfers, Errors, and Completed window.')
+            self.setStatusTip(
+                'Show the Transfers, Errors, and Completed window.'
+            )

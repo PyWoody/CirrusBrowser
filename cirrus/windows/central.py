@@ -148,23 +148,6 @@ class CentralWidgetWindow(QWidget):  # Terrible name
         runnable.signals.callback.connect(utils.execute_callback)
         self.threadpool.start(runnable)
 
-    def og_menu_item_selected(self, action):
-        # TODO: Move away from exec. Transition to setModal
-        if action.exec():
-            widget = self.transfers_window.tabs.currentWidget()
-            runnable = action.runnable()
-            runnable.signals.aborted.connect(partial(print, 'Aborted!'))
-            runnable.signals.started.connect(print)
-            runnable.signals.process_queue.connect(self.start_queue_tmp)
-            runnable.signals.update.connect(print)
-            runnable.signals.select.connect(
-                widget.model().delta_select
-            )
-            runnable.signals.error.connect(print)
-            runnable.signals.callback.connect(utils.execute_callback)
-            runnable.signals.finished.connect(print)
-            self.threadpool.start(runnable)
-
     def s3_context_menu(self, parent, pos, files, folders):
         raise NotImplementedError
         context = menus.local_file_listing_menu(

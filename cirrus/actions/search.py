@@ -4,20 +4,23 @@ import uuid
 from functools import partial
 
 from .base import BaseAction, BaseRunnable
-from cirrus import database, dialogs, items, utils
+from cirrus import database, dialogs, items, settings, utils
 from cirrus.actions.signals import ActionSignals
 from cirrus.windows.search import SearchResultsWindow
 
 from PySide6.QtCore import Slot
+from PySide6.QtGui import QIcon
 
 
 class SearchAction(BaseAction):
+    # TODO: Prevent this from autoclosing
 
     def __init__(self, parent, folders=None):
         super().__init__(parent)
         self.dialog = None
         self.parent = parent
         self.folders = folders
+        self.setIcon(QIcon(os.path.join(settings.ICON_DIR, 'search.svg')))
         self.setText('Search')
         self.setStatusTip(
             'Advanced controls for filtering with additional options'

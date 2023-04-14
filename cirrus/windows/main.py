@@ -64,6 +64,10 @@ class MainWindow(QMainWindow):
         file_menu.addAction(exit_action)
 
         actions_menu = menu.addMenu('&Actions')
+        # TODO: QMenu for search per selected panel
+        actions_menu.addMenu(
+            actions.menus.BuildSearchMenu(self.central_widget)
+        )
         actions_menu.addAction(toggle_transfers_action)
         actions_menu.addAction(toggle_transfers_panel_action)
 

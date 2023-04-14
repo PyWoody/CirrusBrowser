@@ -8,6 +8,7 @@ from cirrus import database, dialogs, exceptions, items, settings, utils
 from cirrus.actions.signals import ActionSignals
 
 from PySide6.QtCore import Slot
+from PySide6.QtGui import QIcon
 from PySide6.QtSql import QSqlDatabase
 
 
@@ -19,6 +20,7 @@ class CreateDirectoryAction(BaseAction):
         self.dialog = None
         self.parent = parent
         self.folders = folders
+        self.setIcon(QIcon(os.path.join(settings.ICON_DIR, 'add-folder.svg')))
         self.setText('Create Directory')
         self.setStatusTip('Create a directory from the current location.')
 
@@ -248,6 +250,7 @@ class CreateDirectoryRunnable(BaseRunnable):
                 user = items.new_user(self.parent.user, path)
                 item(user, is_dir=True).makedirs()
         self.signals.finished.emit(f'Testing - {self.parent.root} - FINISHED')
+        self.signals.execute_callback.emit(self.parent().refresh)
 
 
 class FolderRunnable(BaseRunnable):

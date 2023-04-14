@@ -101,7 +101,9 @@ def pop_saved_panel(index=-1):
             RW_LOCK.lockForWrite()
             _ = data.setdefault('Panels', []).pop(index)
         except IndexError:
-            logging.debug(f'IndexError while removing Panels: {data["Panels"]}')
+            logging.debug(
+                f'IndexError while removing Panels: {data["Panels"]}'
+            )
         else:
             with open(SETUP, 'w', encoding='utf8') as f:
                 json.dump(data, f)
