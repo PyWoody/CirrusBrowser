@@ -85,7 +85,7 @@ class TransfersWindow(QWidget):
     def menu_item_selected(self, action):
         widget = action.parent
         runnable = action.runnable()
-        runnable.signals.started.connect(print)
+        # runnable.signals.started.connect(print)
         runnable.signals.select.connect(widget.model().select)
         runnable.signals.error.connect(print)
         runnable.signals.update.connect(self.database_queue.remove_item)

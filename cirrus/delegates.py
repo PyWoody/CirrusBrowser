@@ -14,7 +14,7 @@ class CheckBoxDelegate(QItemDelegate):
         super().__init__(parent)
 
     def paint(self, painter, option, index):
-        if int(index.data()) == Qt.Checked:
+        if index.data() == Qt.Checked:
             status = Qt.Checked
         else:
             status = Qt.Unchecked

@@ -12,5 +12,5 @@ class ActionSignals(QObject):
     process_queue = Signal()
     callback = Signal(partial)
     select = Signal()
-    started = Signal(str)
+    started = Signal()
     update = Signal(str)

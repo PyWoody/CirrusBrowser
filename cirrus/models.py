@@ -132,6 +132,7 @@ class TransfersTableModel(QSqlTableModel):
                 return ' '.join([i.capitalize() for i in data.split(' ')])
         return super().headerData(section, orientation, role)
 
+    @Slot(QModelIndex)
     def flags(self, index):
         if index.isValid():
             return Qt.ItemIsSelectable | Qt.ItemIsEnabled
@@ -557,7 +558,7 @@ class SearchResultsModel(QStandardItemModel):
     def add_result(self, item):
         if not self._stopped:
             try:
-                out_items = [QStandardItem('0')]  # Checkbox
+                out_items = [QStandardItem('0')]  # Checkbox (Unchecked)
                 out_items.append(QStandardItem(item.root))
                 out_items.append(QStandardItem(str(item.size)))
                 if item.mtime:

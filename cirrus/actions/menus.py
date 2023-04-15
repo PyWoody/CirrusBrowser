@@ -116,7 +116,6 @@ class BuildSearchMenu(QMenu):
     def build_menu(self):
         self.clear()
         for panel, _ in self.parent().splitter_listing_panels:
-            # print(panel)
             action = SearchAction(panel.view)
             action.setIcon(QIcon())
             cap_type = ' '.join(

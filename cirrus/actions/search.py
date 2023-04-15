@@ -73,6 +73,10 @@ class SearchRunnable(BaseRunnable):
         self.dialog = dialog
         self.signals = ActionSignals()
         self.search_results_window = SearchResultsWindow()
+        self.signals.finished.connect(
+            self.search_results_window.search_completed
+        )
+        self.search_results_window.aborted.connect(self.stop)
         self.search_results_window.closed.connect(self.closed)
         self.search_results_window.show()
         self._id = str(uuid.uuid4())
@@ -80,7 +84,7 @@ class SearchRunnable(BaseRunnable):
 
     @Slot()
     def run(self):
-        self.signals.started.emit(f'Testing - {self.parent.root} - START')
+        self.signals.started.emit()
         filters = []
         if name := self.dialog.name.text():
             name = os.path.splitext(name)[0]
@@ -149,15 +153,16 @@ class SearchRunnable(BaseRunnable):
         for folder in self.dialog.folders:
             if self.stopped:
                 self.signals.finished.emit('Stopped')
+                self.signals.aborted.emit()
                 return
             for result in search_func(folder):
                 if self.stopped:
                     self.signals.finished.emit('Stopped')
+                    self.signals.aborted.emit()
                     return
                 if all(f(result) for f in filters):
                     self.signals.callback.emit(partial(cb_func, result))
-        # TODO: Should self.deleteLater emitted/called?
-        self.signals.finished.emit(f'Testing - {self.parent.root} - FINISHED')
+        self.signals.finished.emit('Completed')
 
     def recursive_search(self, item):
         for root, dirs, files in item.walk():
@@ -166,6 +171,9 @@ class SearchRunnable(BaseRunnable):
 
     def top_level_search(self, item):
         yield from item.listdir()
+
+    def stop(self):
+        self.stopped = True
 
     @Slot()
     def closed(self):
@@ -187,7 +195,7 @@ class TransferFilterRunnable(BaseRunnable):
 
     @Slot()
     def run(self):
-        self.signals.started.emit(f'Testing - {self.parent.root} - START')
+        self.signals.started.emit()
         filters = []
         if name := self.dialog.name.text():
             name = os.path.splitext(name)[0]
