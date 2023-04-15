@@ -26,6 +26,7 @@ class SearchResultsWindow(QWidget):
         self.view.checked.connect(self.enable_btns)
         self.view.all_unchecked.connect(self.disable_btns)
 
+        # TODO: Button left-aligned: Select All
         button_box = QDialogButtonBox()
         self.stop_btn = button_box.addButton(
             '&Stop', QDialogButtonBox.ButtonRole.RejectRole

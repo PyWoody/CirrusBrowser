@@ -42,10 +42,10 @@ class SearchResultsTreeView(QTreeView):
     @Slot(QModelIndex)
     def toggle_checkbox(self, index):
         if index.isValid() and index.column() == 0:
-            if str(index.data()) == '0' or index.data() == Qt.Unchecked:
-                check = Qt.Checked
-            else:
+            if index.data() == Qt.Checked:
                 check = Qt.Unchecked
+            else:
+                check = Qt.Checked
             if index.model().setData(index, check):
                 # TODO: Set row selected
                 index.model().dataChanged.emit(index, index)
