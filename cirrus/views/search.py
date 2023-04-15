@@ -1,6 +1,6 @@
 from cirrus.delegates import CheckBoxDelegate
 
-from PySide6.QtCore import Qt, QModelIndex, Slot
+from PySide6.QtCore import Qt, QModelIndex, Signal, Slot
 from PySide6.QtGui import QStandardItem
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -10,6 +10,8 @@ from PySide6.QtWidgets import (
 
 
 class SearchResultsTreeView(QTreeView):
+    checked = Signal()
+    all_unchecked = Signal()
 
     def __init__(self):
         super().__init__()
@@ -20,8 +22,6 @@ class SearchResultsTreeView(QTreeView):
         self.setTextElideMode(Qt.ElideMiddle)
         self.setIndentation(10)
         self.setEditTriggers(QAbstractItemView.NoEditTriggers)
-        # self.setSelectionBehavior(QAbstractItemView.SelectRows)
-        # self.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.setSelectionMode(QAbstractItemView.NoSelection)
         delegate = CheckBoxDelegate(self)
         self.setItemDelegateForColumn(0, delegate)
@@ -42,6 +42,18 @@ class SearchResultsTreeView(QTreeView):
     @Slot(QModelIndex)
     def toggle_checkbox(self, index):
         if index.isValid() and index.column() == 0:
-            check = 1 if index.data() == 0 else 0
-            if index.model().setData(index, Qt.Checked):
+            if str(index.data()) == '0' or index.data() == Qt.Unchecked:
+                check = Qt.Checked
+            else:
+                check = Qt.Unchecked
+            if index.model().setData(index, check):
+                # TODO: Set row selected
                 index.model().dataChanged.emit(index, index)
+                if check == Qt.Checked:
+                    self.checked.emit()
+                else:
+                    index = index.siblingAtRow(0)
+                    if not self.model().match(
+                        index, Qt.DisplayRole, Qt.Checked, flags=Qt.MatchExactly
+                    ):
+                        self.all_unchecked.emit()

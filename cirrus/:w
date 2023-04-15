@@ -23,7 +23,7 @@ class SearchResultsWindow(QWidget):
         self.view = SearchResultsTreeView()
         self.view.setModel(model)
         self.view.setup_header()
-        self.view.checked.connect(self.enable_btns)
+        self.view.item_checked.connect(self.enable_btns)
         self.view.all_unchecked.connect(self.disable_btns)
 
         button_box = QDialogButtonBox()
@@ -60,7 +60,7 @@ class SearchResultsWindow(QWidget):
 
     @Slot()
     def enable_btns(self):
-        if not self.delete_btn.isEnabled():
+        if not self.delet_btn.isEnabled():
             self.delete_btn.setEnabled(True)
         if not self.download_btn.isEnabled():
             self.download_btn.setEnabled(True)
