@@ -1,7 +1,6 @@
 from cirrus.delegates import CheckBoxDelegate
 
 from PySide6.QtCore import Qt, QModelIndex, Signal, Slot
-from PySide6.QtGui import QStandardItem
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QHeaderView,
@@ -54,6 +53,9 @@ class SearchResultsTreeView(QTreeView):
                 else:
                     index = index.siblingAtRow(0)
                     if not self.model().match(
-                        index, Qt.DisplayRole, Qt.Checked, flags=Qt.MatchExactly
+                        index,
+                        Qt.DisplayRole,
+                        Qt.Checked,
+                        flags=Qt.MatchExactly
                     ):
                         self.all_unchecked.emit()
