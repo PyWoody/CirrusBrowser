@@ -92,7 +92,7 @@ class TransfersWindow(QWidget):
         runnable.signals.finished.connect(print)
         self.threadpool.start(runnable)
 
-    @Slot(int)
+    @Slot()
     def select_current_tab_model(self):
         self.tabs.currentWidget().model().select()
 
