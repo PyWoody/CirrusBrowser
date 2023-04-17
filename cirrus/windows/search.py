@@ -27,7 +27,9 @@ class SearchResultsWindow(QWidget):
         self.view.setModel(model)
         self.view.setup_header()
         self.view.checked.connect(self.enable_action_btns)
+        self.view.unchecked.connect(self.unchecked)
         self.view.all_unchecked.connect(self.disable_action_btns)
+        self.view.all_checked.connect(self.all_checked)
 
         button_layout = QHBoxLayout()
         self.select_all_btn = QPushButton('Select All')
@@ -234,6 +236,7 @@ class SearchResultsWindow(QWidget):
                         bottom_right = checkbox
             self.view.model().dataChanged.emit(top_left, bottom_right)
             self.enable_action_btns()
+            self.select_all_btn.setEnabled(False)
 
     @Slot(bool)
     def download(self, checked, *, parent=QModelIndex()):
@@ -259,6 +262,16 @@ class SearchResultsWindow(QWidget):
             self.setWindowTitle('Search Results')
 
     @Slot()
+    def all_checked(self):
+        if self.select_all_btn.isEnabled():
+            self.select_all_btn.setEnabled(False)
+
+    @Slot()
+    def unchecked(self):
+        if not self.select_all_btn.isEnabled():
+            self.select_all_btn.setEnabled(True)
+
+    @Slot()
     def enable_action_btns(self):
         if not self.delete_btn.isEnabled():
             self.delete_btn.setEnabled(True)
@@ -275,3 +288,19 @@ class SearchResultsWindow(QWidget):
             self.download_btn.setEnabled(False)
         if self.clear_selection_btn.isEnabled():
             self.clear_selection_btn.setEnabled(False)
+        index = self.view.model().index(0, 0)
+        if not index.isValid():
+            if self.select_all_btn.isEnabled():
+                self.select_all_btn.setEnabled(False)
+        elif self.view.isRowHidden(index.row(), QModelIndex()):
+            if self.select_all_btn.isEnabled():
+                self.select_all_btn.setEnabled(False)
+        else:
+            if not self.view.model().match(
+                index,
+                Qt.DisplayRole,
+                Qt.Unchecked,
+                flags=Qt.MatchExactly
+            ):
+                if self.select_all_btn.isEnabled():
+                    self.select_all_btn.setEnabled(False)

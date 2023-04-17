@@ -17,6 +17,8 @@ from PySide6.QtWidgets import (
 
 class SearchResultsTreeView(QTreeView):
     checked = Signal()
+    unchecked = Signal()
+    all_checked = Signal()
     all_unchecked = Signal()
 
     def __init__(self):
@@ -92,6 +94,7 @@ class SearchResultsTreeView(QTreeView):
                             QItemSelectionModel.Select
                         )
                     else:
+                        self.unchecked.emit()
                         self.selectionModel().select(
                             index,
                             QItemSelectionModel.Rows |
@@ -102,8 +105,8 @@ class SearchResultsTreeView(QTreeView):
                     if bottom is None or bottom.row() < index.row():
                         bottom = index
             index.model().dataChanged.emit(top, bottom)
+            index = index.siblingAtRow(0)
             if check == Qt.Unchecked:
-                index = index.siblingAtRow(0)
                 if not self.model().match(
                     index,
                     Qt.DisplayRole,
@@ -111,3 +114,11 @@ class SearchResultsTreeView(QTreeView):
                     flags=Qt.MatchExactly
                 ):
                     self.all_unchecked.emit()
+            else:
+                if not self.model().match(
+                    index,
+                    Qt.DisplayRole,
+                    Qt.Unchecked,
+                    flags=Qt.MatchExactly
+                ):
+                    self.all_checked.emit()
