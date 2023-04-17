@@ -87,6 +87,8 @@ class MainWindow(QMainWindow):
                 partial(self.central_widget.menu_item_selected_cb, action)
             )
             action.show_dialog()
+        elif key_combo == QKeySequence(Qt.CTRL | Qt.Key_N):
+            self.central_widget.setup_login()
         elif key_combo == QKeySequence(Qt.CTRL | Qt.Key_W):
             self.close()
         else:
