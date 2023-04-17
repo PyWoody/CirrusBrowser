@@ -661,6 +661,16 @@ def new_user(user, root):
     return _user
 
 
+def account_to_item(account):
+    if account['Type'] == 'S3':
+        return S3Item(account.copy(), is_dir=True)
+    if account['Type'] == 'Digital Ocean':
+        return DigitalOceanItem(account.copy(), is_dir=True)
+    elif account['Type'] == 'Local':
+        return LocalItem(account.copy(), is_dir=True)
+    else:
+        raise ValueError(f'No Item-type for {account["Type"]}')
+
 def match_user(users, act_type, root):
     for user in users:
         if user['Type'].lower() == act_type.lower():

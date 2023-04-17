@@ -1,6 +1,6 @@
 from cirrus.delegates import CheckBoxDelegate
 
-from PySide6.QtCore import Qt, QModelIndex, Signal, Slot
+from PySide6.QtCore import Qt, QModelIndex, QItemSelectionModel, Signal, Slot
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QHeaderView,
@@ -46,11 +46,18 @@ class SearchResultsTreeView(QTreeView):
             else:
                 check = Qt.Checked
             if index.model().setData(index, check):
-                # TODO: Set row selected
                 index.model().dataChanged.emit(index, index)
                 if check == Qt.Checked:
                     self.checked.emit()
+                    self.selectionModel().select(
+                        index,
+                        QItemSelectionModel.Rows | QItemSelectionModel.Select
+                    )
                 else:
+                    self.selectionModel().select(
+                        index,
+                        QItemSelectionModel.Rows | QItemSelectionModel.Deselect
+                    )
                     index = index.siblingAtRow(0)
                     if not self.model().match(
                         index,

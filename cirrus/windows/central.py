@@ -138,11 +138,12 @@ class CentralWidgetWindow(QWidget):  # Terrible name
                 )
             )
 
-    def menu_item_selected_cb(self, action, model):
+    def menu_item_selected_cb(self, action, model=None):
         runnable = action.runnable()
         runnable.signals.aborted.connect(partial(print, 'Aborted!'))
         runnable.signals.process_queue.connect(self.start_queue_tmp)
-        runnable.signals.select.connect(model.delta_select)
+        if model is not None:
+            runnable.signals.select.connect(model.delta_select)
         runnable.signals.callback.connect(utils.execute_callback)
         self.threadpool.start(runnable)
 

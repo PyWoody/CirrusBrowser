@@ -1,8 +1,12 @@
+from . import main
 from .listings import (
     LocalFileListingWindow,
     S3FileListingWindow,
     DigitOceanFileListingWindow,
 )
+
+
+__all__ = ['main']
 
 
 types = {

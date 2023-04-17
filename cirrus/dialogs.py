@@ -3,7 +3,7 @@ import os
 
 from functools import partial
 
-from cirrus import items, utils
+from cirrus import items, utils, windows
 
 from PySide6.QtCore import QDate, Qt, Slot
 from PySide6.QtWidgets import (
@@ -151,6 +151,9 @@ class SearchItemsDialog(QDialog):
 
     # TODO: Searches for downloading, uploading, searching
     # TODO: Files, Files and Dirs, Dirs
+    # TODO: When multiple folders, results window will use toggle buttons
+    #       to show/hide those reults
+    #       Select/De-Select All <-> [folder toggles] <-> Action Buttons
 
     def __init__(self, *, parent=None, folders=None):
         super().__init__(parent)
@@ -158,7 +161,12 @@ class SearchItemsDialog(QDialog):
         self.parent = parent
         if folders:
             self.folders = folders
+        elif isinstance(parent, windows.main.MainWindow):
+            self.folders = []
+            for _, account in parent.central_widget.splitter_listing_panels:
+                self.folders.append(items.account_to_item(account))
         else:
+            # TODO: Re-evaluate account v. user
             user = self.parent.user.copy()
             if self.parent.type == 's3':
                 self.folders = [items.S3Item(user, is_dir=True)]
@@ -220,8 +228,9 @@ class SearchItemsDialog(QDialog):
         form.addRow('Name:', self.name_layout)
         form.addRow('Filetype:', self.file_types_layout)
         form.addRow('Creation Time:', self.ctime_layout)
-        if self.parent.type == 's3':
-            form.setRowVisible(2, False)
+        if self.parent and not isinstance(parent, windows.main.MainWindow):
+            if self.parent.type == 's3':
+                form.setRowVisible(2, False)
         form.addRow('Modified Time:', self.mtime_layout)
         form.addRow('Size:', self.size_layout)
 

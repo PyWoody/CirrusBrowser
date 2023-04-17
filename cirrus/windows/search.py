@@ -3,10 +3,12 @@ from functools import partial
 from cirrus.models import SearchResultsModel
 from cirrus.views.search import SearchResultsTreeView
 
-from PySide6.QtCore import Qt, Slot, Signal
+from PySide6.QtCore import Qt, QItemSelectionModel, QModelIndex, Slot, Signal
+from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QPushButton,
+    QToolButton,
     QVBoxLayout,
     QWidget,
 )
@@ -16,7 +18,7 @@ class SearchResultsWindow(QWidget):
     aborted = Signal()
     closed = Signal()
 
-    def __init__(self):
+    def __init__(self, folders):
         super().__init__()
         self.resize(725, 475)
         self.setWindowTitle('Searching...')
@@ -27,9 +29,6 @@ class SearchResultsWindow(QWidget):
         self.view.checked.connect(self.enable_btns)
         self.view.all_unchecked.connect(self.disable_btns)
 
-        # TODO: Button left-aligned: Select All
-        #       Can't be done with button box. Will have to do QHBoxLayout
-        #       w/ spacer
         button_layout = QHBoxLayout()
         self.select_all_btn = QPushButton('Select All')
         self.select_all_btn.clicked.connect(self.select_all)
@@ -47,6 +46,20 @@ class SearchResultsWindow(QWidget):
         button_layout.addWidget(self.select_all_btn)
         button_layout.addWidget(self.clear_selection_btn)
         button_layout.addStretch(1)
+        self.label_actions = []
+        for folder in folders:
+            label = QToolButton()
+            label_action = QAction()
+            label_action.setText(folder.root)
+            label_action.setCheckable(True)
+            label_action.setChecked(True)
+            label.triggered.connect(
+                partial(self.label_toggled, folder.root)
+            )
+            label.setDefaultAction(label_action)
+            button_layout.addWidget(label)
+            self.label_actions.append(label_action)
+        button_layout.addStretch(1)
         button_layout.addWidget(self.download_btn)
         button_layout.addWidget(self.delete_btn)
         button_layout.addWidget(self.stop_btn)
@@ -59,6 +72,75 @@ class SearchResultsWindow(QWidget):
     def closeEvent(self, event):
         self.closed.emit()
         super().closeEvent(event)
+
+    @Slot(str, object)
+    def label_toggled(self, root, action):
+        if (index := self.view.model().index(0, 1)).isValid():
+            parent = QModelIndex()
+            if action.isChecked():
+                if not self.select_all_btn.isEnabled():
+                    self.select_all_btn.setEnabled(True)
+                for row in self.view.model().match(
+                    index,
+                    Qt.DisplayRole,
+                    root,
+                    flags=Qt.MatchStartsWith,
+                    hits=-1,
+                ):
+                    self.view.setRowHidden(row.row(), parent, False)
+                for label in self.label_actions:
+                    if all(
+                        not self.view.isRowHidden(row.row(), parent)
+                        for row in self.view.model().match(
+                            index,
+                            Qt.DisplayRole,
+                            label.text(),
+                            flags=Qt.MatchStartsWith,
+                            hits=-1,
+                        )
+                    ):
+                        if not label.isChecked():
+                            label.setChecked(True)
+            else:
+                for row in self.view.model().match(
+                    index,
+                    Qt.DisplayRole,
+                    root,
+                    flags=Qt.MatchStartsWith,
+                    hits=-1,
+                ):
+                    self.view.setRowHidden(row.row(), parent, True)
+                    row_sibling = row.siblingAtColumn(0)
+                    if self.view.model().data(row_sibling) == Qt.Checked:
+                        self.view.model().setData(row_sibling, Qt.Unchecked)
+                        self.view.selectionModel().select(
+                            row,
+                            QItemSelectionModel.Rows |
+                            QItemSelectionModel.Deselect
+                        )
+                if all(
+                    self.view.isRowHidden(row, parent)
+                    for row in range(self.view.model().rowCount())
+                ):
+                    for label in self.label_actions:
+                        label.setChecked(False)
+                    self.clear_selection()
+                    self.select_all_btn.setEnabled(False)
+                    self.disable_btns()
+                else:
+                    for label in self.label_actions:
+                        if all(
+                            self.view.isRowHidden(row.row(), parent)
+                            for row in self.view.model().match(
+                                index,
+                                Qt.DisplayRole,
+                                label.text(),
+                                flags=Qt.MatchStartsWith,
+                                hits=-1,
+                            )
+                        ):
+                            if label.isChecked():
+                                label.setChecked(False)
 
     @Slot(str)
     def search_completed(self, msg):
@@ -81,6 +163,10 @@ class SearchResultsWindow(QWidget):
                 flags=Qt.MatchExactly,
                 hits=-1,
             ):
+                self.view.selectionModel().select(
+                    checkbox,
+                    QItemSelectionModel.Rows | QItemSelectionModel.Deselect
+                )
                 self.view.model().setData(checkbox, Qt.Unchecked)
                 if top_left is None:
                     top_left = checkbox
@@ -98,6 +184,7 @@ class SearchResultsWindow(QWidget):
     @Slot()
     def select_all(self):
         if (index := self.view.model().index(0, 0)).isValid():
+            parent = QModelIndex()
             top_left = None
             bottom_right = None
             for checkbox in self.view.model().match(
@@ -107,15 +194,20 @@ class SearchResultsWindow(QWidget):
                 flags=Qt.MatchExactly,
                 hits=-1,
             ):
-                self.view.model().setData(checkbox, Qt.Checked)
-                if top_left is None:
-                    top_left = checkbox
-                elif top_left.row() > checkbox.row():
-                    top_left = checkbox
-                if bottom_right is None:
-                    bottom_right = checkbox
-                elif bottom_right.row() < checkbox.row():
-                    bottom_right = checkbox
+                if not self.view.isRowHidden(checkbox.row(), parent):
+                    self.view.selectionModel().select(
+                        checkbox,
+                        QItemSelectionModel.Rows | QItemSelectionModel.Select
+                    )
+                    self.view.model().setData(checkbox, Qt.Checked)
+                    if top_left is None:
+                        top_left = checkbox
+                    elif top_left.row() > checkbox.row():
+                        top_left = checkbox
+                    if bottom_right is None:
+                        bottom_right = checkbox
+                    elif bottom_right.row() < checkbox.row():
+                        bottom_right = checkbox
             for checkbox in self.view.model().match(
                 index,
                 Qt.DisplayRole,
@@ -123,15 +215,20 @@ class SearchResultsWindow(QWidget):
                 flags=Qt.MatchExactly,
                 hits=-1,
             ):
-                self.view.model().setData(checkbox, Qt.Checked)
-                if top_left is None:
-                    top_left = checkbox
-                elif top_left.row() > checkbox.row():
-                    top_left = checkbox
-                if bottom_right is None:
-                    bottom_right = checkbox
-                elif bottom_right.row() < checkbox.row():
-                    bottom_right = checkbox
+                if not self.view.isRowHidden(checkbox.row(), parent):
+                    self.view.selectionModel().select(
+                        checkbox,
+                        QItemSelectionModel.Rows | QItemSelectionModel.Select
+                    )
+                    self.view.model().setData(checkbox, Qt.Checked)
+                    if top_left is None:
+                        top_left = checkbox
+                    elif top_left.row() > checkbox.row():
+                        top_left = checkbox
+                    if bottom_right is None:
+                        bottom_right = checkbox
+                    elif bottom_right.row() < checkbox.row():
+                        bottom_right = checkbox
             self.view.model().dataChanged.emit(top_left, bottom_right)
             if not self.clear_selection_btn.isEnabled():
                 self.clear_selection_btn.setEnabled(True)

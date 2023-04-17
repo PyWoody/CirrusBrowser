@@ -1,10 +1,11 @@
 import logging
+from functools import partial
 
 from .central import CentralWidgetWindow
 from cirrus import actions, database
 
-from PySide6.QtCore import QSize
-from PySide6.QtGui import QAction
+from PySide6.QtCore import QSize, Qt
+from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtWidgets import QMainWindow, QToolBar
 
 
@@ -12,6 +13,7 @@ class MainWindow(QMainWindow):
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.setFocusPolicy(Qt.StrongFocus)
         self.setWindowTitle('Cirrus Browser (Experimental)')
         logging.info('Resetting the database.')
         if database.clean_database():
@@ -75,6 +77,19 @@ class MainWindow(QMainWindow):
         help_menu = menu.addMenu('&Help')
 
         self.resize(900, 700)
+
+    def keyPressEvent(self, event):
+        key_combo = event.keyCombination().toCombined()
+        if key_combo == QKeySequence(Qt.CTRL | Qt.Key_F):
+            action = actions.search.SearchAction(self)
+            action.accepted.connect(
+                partial(self.central_widget.menu_item_selected_cb, action)
+            )
+            action.show_dialog()
+        elif key_combo == QKeySequence(Qt.CTRL | Qt.Key_W):
+            self.close()
+        else:
+            return super().keyPressEvent(event)
 
     def closeEvent(self, event):
         try:

@@ -13,7 +13,6 @@ from PySide6.QtGui import QIcon
 
 
 class SearchAction(BaseAction):
-    # TODO: Prevent this from autoclosing
 
     def __init__(self, parent, folders=None):
         super().__init__(parent)
@@ -72,7 +71,7 @@ class SearchRunnable(BaseRunnable):
         self.parent = parent
         self.dialog = dialog
         self.signals = ActionSignals()
-        self.search_results_window = SearchResultsWindow()
+        self.search_results_window = SearchResultsWindow(self.dialog.folders)
         self.signals.finished.connect(
             self.search_results_window.search_completed
         )
