@@ -34,8 +34,10 @@ if __name__ == '__main__':
     from cirrus.windows.main import MainWindow
 
     app = QApplication([])
+    app.aboutToQuit.connect(app.closeAllWindows)
     if not create_connection():
         sys.exit(1)
     window = MainWindow()
+    window.closed.connect(app.closeAllWindows)
     window.show()
     sys.exit(app.exec())

@@ -4,12 +4,13 @@ from functools import partial
 from .central import CentralWidgetWindow
 from cirrus import actions, database
 
-from PySide6.QtCore import QSize, Qt
+from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtWidgets import QMainWindow, QToolBar
 
 
 class MainWindow(QMainWindow):
+    closed = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -106,3 +107,4 @@ class MainWindow(QMainWindow):
             database.critical_msg('closeEvent', str(e))
         finally:
             super().closeEvent(event)
+            self.closed.emit()
