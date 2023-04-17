@@ -7,6 +7,7 @@ from PySide6.QtCore import Qt, QItemSelectionModel, QModelIndex, Slot, Signal
 from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtWidgets import (
     QHBoxLayout,
+    QLabel,
     QPushButton,
     QToolButton,
     QVBoxLayout,
@@ -49,25 +50,29 @@ class SearchResultsWindow(QWidget):
         button_layout.addWidget(self.select_all_btn)
         button_layout.addWidget(self.clear_selection_btn)
         button_layout.addStretch(1)
-        self.label_actions = []
-        for folder in folders:
-            label = QToolButton()
-            label_action = QAction()
-            label_action.setText(folder.root)
-            label_action.setCheckable(True)
-            label_action.setChecked(True)
-            label.triggered.connect(
-                partial(self.label_toggled, folder.root)
-            )
-            label.setDefaultAction(label_action)
-            button_layout.addWidget(label)
-            self.label_actions.append(label_action)
-        button_layout.addStretch(1)
         button_layout.addWidget(self.download_btn)
         button_layout.addWidget(self.delete_btn)
         button_layout.addWidget(self.stop_btn)
 
+        self.label_actions = []
         layout = QVBoxLayout()
+        if len(folders) > 1:
+            label_layout = QHBoxLayout()
+            label_layout.addWidget(QLabel('Locations:'))
+            for folder in folders:
+                label = QToolButton()
+                label_action = QAction()
+                label_action.setText(folder.root)
+                label_action.setCheckable(True)
+                label_action.setChecked(True)
+                label.triggered.connect(
+                    partial(self.label_toggled, folder.root)
+                )
+                label.setDefaultAction(label_action)
+                label_layout.addWidget(label)
+                self.label_actions.append(label_action)
+            label_layout.addStretch(1)
+            layout.addLayout(label_layout)
         layout.addWidget(self.view)
         layout.addLayout(button_layout)
         self.setLayout(layout)
