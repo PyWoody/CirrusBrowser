@@ -26,8 +26,8 @@ class SearchResultsWindow(QWidget):
         self.view = SearchResultsTreeView()
         self.view.setModel(model)
         self.view.setup_header()
-        self.view.checked.connect(self.enable_btns)
-        self.view.all_unchecked.connect(self.disable_btns)
+        self.view.checked.connect(self.enable_action_btns)
+        self.view.all_unchecked.connect(self.disable_action_btns)
 
         button_layout = QHBoxLayout()
         self.select_all_btn = QPushButton('Select All')
@@ -71,7 +71,7 @@ class SearchResultsWindow(QWidget):
 
     def closeEvent(self, event):
         self.closed.emit()
-        super().closeEvent(event)
+        return super().closeEvent(event)
 
     @Slot(str, object)
     def label_toggled(self, root, action):
@@ -126,7 +126,7 @@ class SearchResultsWindow(QWidget):
                         label.setChecked(False)
                     self.clear_selection()
                     self.select_all_btn.setEnabled(False)
-                    self.disable_btns()
+                    self.disable_action_btns()
                 else:
                     for label in self.label_actions:
                         if all(
@@ -141,15 +141,6 @@ class SearchResultsWindow(QWidget):
                         ):
                             if label.isChecked():
                                 label.setChecked(False)
-
-    @Slot(str)
-    def search_completed(self, msg):
-        self.stop_btn.setEnabled(False)
-        self.select_all_btn.setEnabled(True)
-        if msg in {'Stopped', 'Aborted', 'Completed'}:
-            self.setWindowTitle(f'Search Results - {msg}')
-        else:
-            self.setWindowTitle('Search Results')
 
     @Slot()
     def clear_selection(self):
@@ -177,7 +168,7 @@ class SearchResultsWindow(QWidget):
                 elif bottom_right.row() < checkbox.row():
                     bottom_right = checkbox
             self.view.model().dataChanged.emit(top_left, bottom_right)
-            self.clear_selection_btn.setEnabled(False)
+            self.disable_action_btns()
             if not self.select_all_btn.isEnabled():
                 self.select_all_btn.setEnabled(True)
 
@@ -230,11 +221,20 @@ class SearchResultsWindow(QWidget):
                     elif bottom_right.row() < checkbox.row():
                         bottom_right = checkbox
             self.view.model().dataChanged.emit(top_left, bottom_right)
-            if not self.clear_selection_btn.isEnabled():
-                self.clear_selection_btn.setEnabled(True)
+            self.enable_action_btns()
+
+    @Slot(str)
+    def search_completed(self, msg):
+        self.stop_btn.setEnabled(False)
+        if self.view.model().rowCount():
+            self.select_all_btn.setEnabled(True)
+        if msg in {'Stopped', 'Aborted', 'Completed'}:
+            self.setWindowTitle(f'Search Results - {msg}')
+        else:
+            self.setWindowTitle('Search Results')
 
     @Slot()
-    def enable_btns(self):
+    def enable_action_btns(self):
         if not self.delete_btn.isEnabled():
             self.delete_btn.setEnabled(True)
         if not self.download_btn.isEnabled():
@@ -243,7 +243,7 @@ class SearchResultsWindow(QWidget):
             self.clear_selection_btn.setEnabled(True)
 
     @Slot()
-    def disable_btns(self):
+    def disable_action_btns(self):
         if self.delete_btn.isEnabled():
             self.delete_btn.setEnabled(False)
         if self.download_btn.isEnabled():

@@ -1,6 +1,13 @@
 from cirrus.delegates import CheckBoxDelegate
 
-from PySide6.QtCore import Qt, QModelIndex, QItemSelectionModel, Signal, Slot
+from PySide6.QtCore import (
+    Qt,
+    QModelIndex,
+    QItemSelectionModel,
+    Signal,
+    Slot,
+)
+from PySide6.QtGui import QKeyEvent
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QHeaderView,
@@ -14,6 +21,8 @@ class SearchResultsTreeView(QTreeView):
 
     def __init__(self):
         super().__init__()
+        self.shift_down = False
+        self.last_checked_index = QModelIndex()
         self.setExpandsOnDoubleClick(False)
         self.setUniformRowHeights(True)
         self.setAnimated(False)
@@ -38,31 +47,67 @@ class SearchResultsTreeView(QTreeView):
         self.resizeColumnToContents(2)
         self.resizeColumnToContents(3)
 
+    @Slot(QKeyEvent)
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key_Shift:
+            self.shift_down = True
+        return super().keyPressEvent(event)
+
+    @Slot(QKeyEvent)
+    def keyReleaseEvent(self, event):
+        self.shift_down = False
+        return super().keyReleaseEvent(event)
+
     @Slot(QModelIndex)
     def toggle_checkbox(self, index):
         if index.isValid() and index.column() == 0:
-            if index.data() == Qt.Checked:
-                check = Qt.Unchecked
-            else:
-                check = Qt.Checked
-            if index.model().setData(index, check):
-                index.model().dataChanged.emit(index, index)
-                if check == Qt.Checked:
-                    self.checked.emit()
-                    self.selectionModel().select(
-                        index,
-                        QItemSelectionModel.Rows | QItemSelectionModel.Select
+            indexes = [index]
+            if self.shift_down and self.last_checked_index.isValid():
+                check = self.last_checked_index.data()
+                if index.row() > self.last_checked_index.row():
+                    indexes_range = range(
+                        self.last_checked_index.row(), index.row()
                     )
                 else:
-                    self.selectionModel().select(
-                        index,
-                        QItemSelectionModel.Rows | QItemSelectionModel.Deselect
+                    indexes_range = range(
+                        index.row(), self.last_checked_index.row()
                     )
-                    index = index.siblingAtRow(0)
-                    if not self.model().match(
-                        index,
-                        Qt.DisplayRole,
-                        Qt.Checked,
-                        flags=Qt.MatchExactly
-                    ):
-                        self.all_unchecked.emit()
+                for row in indexes_range:
+                    indexes.append(self.model().index(row, 0))
+            else:
+                if index.data() == Qt.Checked:
+                    check = Qt.Unchecked
+                else:
+                    check = Qt.Checked
+            self.last_checked_index = index
+            top = None
+            bottom = None
+            for index in indexes:
+                if index.model().setData(index, check):
+                    if check == Qt.Checked:
+                        self.checked.emit()
+                        self.selectionModel().select(
+                            index,
+                            QItemSelectionModel.Rows |
+                            QItemSelectionModel.Select
+                        )
+                    else:
+                        self.selectionModel().select(
+                            index,
+                            QItemSelectionModel.Rows |
+                            QItemSelectionModel.Deselect
+                        )
+                    if top is None or top.row() > index.row():
+                        top = index
+                    if bottom is None or bottom.row() < index.row():
+                        bottom = index
+            index.model().dataChanged.emit(top, bottom)
+            if check == Qt.Unchecked:
+                index = index.siblingAtRow(0)
+                if not self.model().match(
+                    index,
+                    Qt.DisplayRole,
+                    Qt.Checked,
+                    flags=Qt.MatchExactly
+                ):
+                    self.all_unchecked.emit()

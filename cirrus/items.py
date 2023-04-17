@@ -671,6 +671,7 @@ def account_to_item(account):
     else:
         raise ValueError(f'No Item-type for {account["Type"]}')
 
+
 def match_user(users, act_type, root):
     for user in users:
         if user['Type'].lower() == act_type.lower():
