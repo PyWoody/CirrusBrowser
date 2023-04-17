@@ -4,7 +4,7 @@ from cirrus.models import SearchResultsModel
 from cirrus.views.search import SearchResultsTreeView
 
 from PySide6.QtCore import Qt, QItemSelectionModel, QModelIndex, Slot, Signal
-from PySide6.QtGui import QAction
+from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QPushButton,
@@ -41,6 +41,7 @@ class SearchResultsWindow(QWidget):
         self.delete_btn.setEnabled(False)
         self.download_btn = QPushButton('Download')
         self.download_btn.setEnabled(False)
+        self.download_btn.clicked.connect(self.download)
         self.stop_btn.clicked.connect(self.aborted.emit)
         self.stop_btn.clicked.connect(partial(self.stop_btn.setEnabled, False))
         button_layout.addWidget(self.select_all_btn)
@@ -72,6 +73,15 @@ class SearchResultsWindow(QWidget):
     def closeEvent(self, event):
         self.closed.emit()
         return super().closeEvent(event)
+
+    def keyPressEvent(self, event):
+        key_combo = event.keyCombination().toCombined()
+        if key_combo == QKeySequence(Qt.CTRL | Qt.Key_A):
+            self.select_all()
+        elif key_combo == QKeySequence(Qt.CTRL | Qt.Key_W):
+            self.close()
+        else:
+            return super().keyPressEvent(event)
 
     @Slot(str, object)
     def label_toggled(self, root, action):
@@ -175,6 +185,8 @@ class SearchResultsWindow(QWidget):
     @Slot()
     def select_all(self):
         if (index := self.view.model().index(0, 0)).isValid():
+            if self.view.isRowHidden(index.row(), QModelIndex()):
+                return
             parent = QModelIndex()
             top_left = None
             bottom_right = None
@@ -222,6 +234,19 @@ class SearchResultsWindow(QWidget):
                         bottom_right = checkbox
             self.view.model().dataChanged.emit(top_left, bottom_right)
             self.enable_action_btns()
+
+    @Slot(bool)
+    def download(self, checked, *, parent=QModelIndex()):
+        if (index := self.view.model().index(0, 0)).isValid():
+            for row in self.view.model().match(
+                index,
+                Qt.DisplayRole,
+                Qt.Checked,
+                flags=Qt.MatchExactly,
+                hits=-1,
+            ):
+                if not self.view.isRowHidden(row.row(), parent):
+                    print(row.siblingAtColumn(1).data())
 
     @Slot(str)
     def search_completed(self, msg):

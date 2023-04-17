@@ -84,7 +84,9 @@ class CreateDirectoryDialog(QDialog):
             options_layout.setColumnStretch(4, 1)
             for row, folder in enumerate(folders):
                 path = os.path.join(self.parent.root, folder.root)
-                label = QLabel(f'<p>{path}</p>')
+                label = QLabel()
+                label.setTextFormat(Qt.RichText)
+                label.setText(f'<p>{path}</p>')
                 checkbox = QCheckBox()
                 checkbox.setCheckState(Qt.Checked)
                 checkbox.stateChanged.connect(
@@ -236,8 +238,28 @@ class SearchItemsDialog(QDialog):
 
         self.layout = QVBoxLayout()
         self.layout.addWidget(QLabel('Searching in...'))
-        for folder in self.folders:
-            label = QLabel(folder.root)
+        self.label_checkboxes = []
+        if len(self.folders) > 1:
+            labels_layout = QGridLayout()
+            labels_layout.setColumnMinimumWidth(0, 10)
+            labels_layout.setColumnMinimumWidth(2, 5)
+            labels_layout.setColumnStretch(4, 1)
+            for row, folder in enumerate(self.folders):
+                label = QLabel()
+                label.setTextFormat(Qt.RichText)
+                label.setText(f'<p>{folder.root}</p>')
+                checkbox = QCheckBox()
+                checkbox.setCheckState(Qt.Checked)
+                checkbox.stateChanged.connect(
+                    partial(self.checkbox_selected, label)
+                )
+                labels_layout.addWidget(checkbox, row, 1)
+                labels_layout.addWidget(label, row, 3)
+                self.label_checkboxes.append(checkbox)
+            labels_layout.setRowStretch(row + 1, 1)
+            self.layout.addLayout(labels_layout)
+        else:
+            label = QLabel(self.folders[0].root)
             label.setIndent(15)
             self.layout.addWidget(label)
         self.layout.addLayout(form)
@@ -253,6 +275,26 @@ class SearchItemsDialog(QDialog):
             self.mtime_option_increment.minimumSizeHint().width()
         )
         self.size_option.setMinimumWidth(option_col_width)
+
+    @Slot(partial)
+    def checkbox_selected(self, label, state):
+        path = utils.html_to_text(label.text())
+        if state == 0:  # unchecked
+            label.setText(f'<p style="color:grey;">{path}</p>')
+            if self.all_checkboxes_deselected():
+                for btn in self.button_box.buttons():
+                    btn.setEnabled(False)
+        else:
+            label.setText(f'<p>{path}</p>')
+            for btn in self.button_box.buttons():
+                if not btn.isEnabled():
+                    btn.setEnabled(True)
+
+    def all_checkboxes_deselected(self):
+        for checkbox in self.label_checkboxes:
+            if checkbox.isChecked():
+                return False
+        return True
 
     def setup_name_selection(self):
         # Name: contains, starts, ends, exact
