@@ -397,7 +397,7 @@ class BaseS3Item:
         yield path, dirs, files
         for dir_item in dirs:
             dir_name = dir_item.root.strip('/').split('/')[-1]
-            out_path = f'{path.root}{dir_name}/'
+            out_path = f'{path.root.rstrip("/")}/{dir_name}/'
             _user = new_user(self.user, out_path)
             out_item = self.create(_user, is_dir=True)
             yield from self.__walk(
