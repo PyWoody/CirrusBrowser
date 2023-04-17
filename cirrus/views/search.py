@@ -121,4 +121,10 @@ class SearchResultsTreeView(QTreeView):
                     Qt.Unchecked,
                     flags=Qt.MatchExactly
                 ):
-                    self.all_checked.emit()
+                    if not self.model().match(
+                        index,
+                        Qt.DisplayRole,
+                        '0',
+                        flags=Qt.MatchExactly
+                    ):
+                        self.all_checked.emit()
