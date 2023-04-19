@@ -54,11 +54,11 @@ class FlowLayout(QLayout):
         return True
 
     def heightForWidth(self, width):
-        return self._do_layout(QRect(0, 0, width, 0), True)
+        return self._do_layout(QRect(0, 0, width, 0), test_only=True)
 
     def setGeometry(self, rect):
         super().setGeometry(rect)
-        self._do_layout(rect, False)
+        self._do_layout(rect, test_only=False)
 
     def sizeHint(self):
         return self.minimumSize()
@@ -72,7 +72,7 @@ class FlowLayout(QLayout):
         )
         return size
 
-    def _do_layout(self, rect, test_only):
+    def _do_layout(self, rect, *, test_only):
         x = rect.x()
         y = rect.y()
         line_height = 0
