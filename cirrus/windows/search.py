@@ -20,7 +20,7 @@ class SearchResultsWindow(QWidget):
     aborted = Signal()
     closed = Signal()
 
-    def __init__(self, folders):
+    def __init__(self, labels):
         super().__init__()
         self.resize(725, 475)
         self.setWindowTitle('Searching...')
@@ -57,7 +57,7 @@ class SearchResultsWindow(QWidget):
 
         self.label_actions = []
         layout = QVBoxLayout()
-        if len(folders) > 1:
+        if len(labels) > 1:
             label_flow_layout = FlowLayout()
             _label = QLabel()
             _label.setText('Locations:')
@@ -65,19 +65,20 @@ class SearchResultsWindow(QWidget):
             _label.setIndent(5)
             label_flow_layout.addWidget(_label)
             # TODO: Add a status bar to indicate the root being searched
-            for folder in folders:
-                label = QToolButton()
-                label_action = QAction()
-                label_action.setText(folder.root)
-                label_action.setCheckable(True)
-                label_action.setChecked(True)
-                label_action.setEnabled(False)
-                label.triggered.connect(
-                    partial(self.label_toggled, folder.root)
-                )
-                label.setDefaultAction(label_action)
-                label_flow_layout.addWidget(label)
-                self.label_actions.append(label_action)
+            for search_label in labels:
+                if search_label.isChecked():
+                    label = QToolButton()
+                    label_action = QAction()
+                    label_action.setText(search_label.text())
+                    label_action.setCheckable(True)
+                    label_action.setChecked(True)
+                    label_action.setEnabled(False)
+                    label.triggered.connect(
+                        partial(self.label_toggled, search_label.text())
+                    )
+                    label.setDefaultAction(label_action)
+                    label_flow_layout.addWidget(label)
+                    self.label_actions.append(label_action)
             layout.addLayout(label_flow_layout)
         layout.addWidget(self.view)
         layout.addLayout(button_layout)

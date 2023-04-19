@@ -97,7 +97,9 @@ class SearchRunnable(BaseRunnable):
         self.parent = parent
         self.dialog = dialog
         self.signals = ActionSignals()
-        self.search_results_window = SearchResultsWindow(self.dialog.folders)
+        self.search_results_window = SearchResultsWindow(
+            self.dialog.location_selections
+        )
         self.signals.finished.connect(
             self.search_results_window.search_completed
         )
@@ -176,7 +178,15 @@ class SearchRunnable(BaseRunnable):
         else:
             search_func = self.top_level_search
         results = []
+        location_selections = {
+            i.text() for i in self.dialog.location_selections if i.isChecked()
+        }
+        if len(self.dialog.folders) == 1:
+            # This is an EOD hack
+            location_selections.add(self.dialog.folders[0].root)
         for folder in self.dialog.folders:
+            if folder.root not in location_selections:
+                continue
             if self.stopped:
                 self.signals.finished.emit('Stopped')
                 self.signals.aborted.emit()

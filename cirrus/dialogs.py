@@ -6,7 +6,7 @@ from functools import partial
 from cirrus import items, utils, windows
 from cirrus.widgets import FlowLayout
 
-from PySide6.QtCore import QDate, QRect, Qt, Slot
+from PySide6.QtCore import QDate, Qt, Slot
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -22,7 +22,6 @@ from PySide6.QtWidgets import (
     QSpinBox,
     QToolButton,
     QVBoxLayout,
-    QWidget,
 )
 
 # TODO: Standard overwite/compare/skip dialog
@@ -173,23 +172,28 @@ class SearchItemsDialog(QDialog):
         self.setMinimumWidth(600)
         self.setMinimumHeight(200)
         self.parent = parent
+        self.folders = []
         if folders:
-            self.folders = folders
+            __processed = set()
+            for folder in folders:
+                if folder.root not in __processed:
+                    self.folders.append(folder)
+                    __processed.add(folder.root)
         elif isinstance(parent, windows.main.MainWindow):
-            self.folders = []
             for _, account in parent.central_widget.splitter_listing_panels:
                 self.folders.append(items.account_to_item(account))
         else:
             # TODO: Re-evaluate account v. user
             user = self.parent.user.copy()
             if self.parent.type == 's3':
-                self.folders = [items.S3Item(user, is_dir=True)]
+                self.folders.append(items.S3Item(user, is_dir=True))
             if self.parent.type == 'digital ocean':
-                self.folders = [items.DigitalOceanItem(user, is_dir=True)]
+                self.folders.append(items.DigitalOceanItem(user, is_dir=True))
             elif self.parent.type == 'local':
-                self.folders = [items.LocalItem(user, is_dir=True)]
+                self.folders.append(items.LocalItem(user, is_dir=True))
             else:
                 raise ValueError(f'No Item-type for {self.parent.type}')
+        self.folders = sorted(self.folders, key=lambda x: x.root)
         self.setWindowTitle('Search')
         self.recursive = False
         self.button_box = QDialogButtonBox()
@@ -249,7 +253,7 @@ class SearchItemsDialog(QDialog):
         form.addRow('Size:', self.size_layout)
 
         self.layout = QVBoxLayout()
-        self.label_checkboxes = []
+        self.location_selections = []
         if len(self.folders) > 1:
             flow_layout = FlowLayout()
             _label = QLabel()
@@ -257,11 +261,13 @@ class SearchItemsDialog(QDialog):
             _label.setAlignment(Qt.AlignTop)
             _label.setIndent(5)
             flow_layout.addWidget(_label)
-            for root in sorted({i.root for i in self.folders}):
+            for folder in self.folders:
                 label = QToolButton()
-                label.setText(root)
+                label.setText(folder.root)
                 label.setCheckable(True)
                 label.setChecked(True)
+                label.toggled.connect(partial(self.location_selected, label))
+                self.location_selections.append(label)
                 flow_layout.addWidget(label)
             self.layout.addLayout(flow_layout)
         else:
@@ -284,23 +290,19 @@ class SearchItemsDialog(QDialog):
         )
         self.size_option.setMinimumWidth(option_col_width)
 
-    @Slot(partial)
-    def checkbox_selected(self, label, state):
-        path = utils.html_to_text(label.text())
-        if state == 0:  # unchecked
-            label.setText(f'<p style="color:grey;">{path}</p>')
-            if self.all_checkboxes_deselected():
-                for btn in self.button_box.buttons():
-                    btn.setEnabled(False)
-        else:
-            label.setText(f'<p>{path}</p>')
+    def location_selected(self, label, checked):
+        if checked:
             for btn in self.button_box.buttons():
                 if not btn.isEnabled():
                     btn.setEnabled(True)
+        else:
+            if self.all_locations_deselected():
+                for btn in self.button_box.buttons():
+                    btn.setEnabled(False)
 
-    def all_checkboxes_deselected(self):
-        for checkbox in self.label_checkboxes:
-            if checkbox.isChecked():
+    def all_locations_deselected(self):
+        for btn in self.location_selections:
+            if btn.isChecked():
                 return False
         return True
 
