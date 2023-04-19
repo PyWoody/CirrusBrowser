@@ -2,6 +2,7 @@ from functools import partial
 
 from cirrus.models import SearchResultsModel
 from cirrus.views.search import SearchResultsTreeView
+from cirrus.widgets import FlowLayout
 
 from PySide6.QtCore import Qt, QItemSelectionModel, QModelIndex, Slot, Signal
 from PySide6.QtGui import QAction, QKeySequence
@@ -57,8 +58,12 @@ class SearchResultsWindow(QWidget):
         self.label_actions = []
         layout = QVBoxLayout()
         if len(folders) > 1:
-            label_layout = QHBoxLayout()
-            label_layout.addWidget(QLabel('Locations:'))
+            label_flow_layout = FlowLayout()
+            _label = QLabel()
+            _label.setText('Locations:')
+            _label.setAlignment(Qt.AlignTop)
+            _label.setIndent(5)
+            label_flow_layout.addWidget(_label)
             # TODO: Add a status bar to indicate the root being searched
             for folder in folders:
                 label = QToolButton()
@@ -71,10 +76,9 @@ class SearchResultsWindow(QWidget):
                     partial(self.label_toggled, folder.root)
                 )
                 label.setDefaultAction(label_action)
-                label_layout.addWidget(label)
+                label_flow_layout.addWidget(label)
                 self.label_actions.append(label_action)
-            label_layout.addStretch(1)
-            layout.addLayout(label_layout)
+            layout.addLayout(label_flow_layout)
         layout.addWidget(self.view)
         layout.addLayout(button_layout)
         self.setLayout(layout)
@@ -94,22 +98,62 @@ class SearchResultsWindow(QWidget):
 
     @Slot(str, object)
     def label_toggled(self, root, action):
-        if (index := self.view.model().index(0, 1)).isValid():
-            parent = QModelIndex()
-            if action.isChecked():
-                if not self.select_all_btn.isEnabled():
-                    self.select_all_btn.setEnabled(True)
-                for row in self.view.model().match(
-                    index,
-                    Qt.DisplayRole,
-                    root,
-                    flags=Qt.MatchStartsWith,
-                    hits=-1,
+        index = self.view.model().index(0, 1)
+        parent = QModelIndex()
+        if action.isChecked():
+            if not self.select_all_btn.isEnabled():
+                self.select_all_btn.setEnabled(True)
+            for row in self.view.model().match(
+                index,
+                Qt.DisplayRole,
+                root,
+                flags=Qt.MatchStartsWith,
+                hits=-1,
+            ):
+                self.view.setRowHidden(row.row(), parent, False)
+            for label in self.label_actions:
+                if all(
+                    not self.view.isRowHidden(row.row(), parent)
+                    for row in self.view.model().match(
+                        index,
+                        Qt.DisplayRole,
+                        label.text(),
+                        flags=Qt.MatchStartsWith,
+                        hits=-1,
+                    )
                 ):
-                    self.view.setRowHidden(row.row(), parent, False)
+                    if not label.isChecked():
+                        label.setChecked(True)
+        else:
+            for row in self.view.model().match(
+                index,
+                Qt.DisplayRole,
+                root,
+                flags=Qt.MatchStartsWith,
+                hits=-1,
+            ):
+                self.view.setRowHidden(row.row(), parent, True)
+                row_sibling = row.siblingAtColumn(0)
+                if self.view.model().data(row_sibling) == Qt.Checked:
+                    self.view.model().setData(row_sibling, Qt.Unchecked)
+                    self.view.selectionModel().select(
+                        row,
+                        QItemSelectionModel.Rows |
+                        QItemSelectionModel.Deselect
+                    )
+            if all(
+                self.view.isRowHidden(row, parent)
+                for row in range(self.view.model().rowCount())
+            ):
+                for label in self.label_actions:
+                    label.setChecked(False)
+                self.clear_selection()
+                self.select_all_btn.setEnabled(False)
+                self.disable_action_btns()
+            else:
                 for label in self.label_actions:
                     if all(
-                        not self.view.isRowHidden(row.row(), parent)
+                        self.view.isRowHidden(row.row(), parent)
                         for row in self.view.model().match(
                             index,
                             Qt.DisplayRole,
@@ -118,115 +162,79 @@ class SearchResultsWindow(QWidget):
                             hits=-1,
                         )
                     ):
-                        if not label.isChecked():
-                            label.setChecked(True)
-            else:
-                for row in self.view.model().match(
-                    index,
-                    Qt.DisplayRole,
-                    root,
-                    flags=Qt.MatchStartsWith,
-                    hits=-1,
-                ):
-                    self.view.setRowHidden(row.row(), parent, True)
-                    row_sibling = row.siblingAtColumn(0)
-                    if self.view.model().data(row_sibling) == Qt.Checked:
-                        self.view.model().setData(row_sibling, Qt.Unchecked)
-                        self.view.selectionModel().select(
-                            row,
-                            QItemSelectionModel.Rows |
-                            QItemSelectionModel.Deselect
-                        )
-                if all(
-                    self.view.isRowHidden(row, parent)
-                    for row in range(self.view.model().rowCount())
-                ):
-                    for label in self.label_actions:
-                        label.setChecked(False)
-                    self.clear_selection()
-                    self.select_all_btn.setEnabled(False)
-                    self.disable_action_btns()
-                else:
-                    for label in self.label_actions:
-                        if all(
-                            self.view.isRowHidden(row.row(), parent)
-                            for row in self.view.model().match(
-                                index,
-                                Qt.DisplayRole,
-                                label.text(),
-                                flags=Qt.MatchStartsWith,
-                                hits=-1,
-                            )
-                        ):
-                            if label.isChecked():
-                                label.setChecked(False)
+                        if label.isChecked():
+                            label.setChecked(False)
 
     @Slot()
     def clear_selection(self):
-        if (index := self.view.model().index(0, 0)).isValid():
-            for checkbox in self.view.model().match(
-                index,
-                Qt.DisplayRole,
-                Qt.Checked,
-                flags=Qt.MatchExactly,
-                hits=-1,
-            ):
-                self.view.selectionModel().select(
-                    checkbox,
-                    QItemSelectionModel.Rows | QItemSelectionModel.Deselect
-                )
-                self.view.model().setData(checkbox, Qt.Unchecked)
-            self.disable_action_btns()
-            if not self.select_all_btn.isEnabled():
-                self.select_all_btn.setEnabled(True)
+        index = self.view.model().index(0, 0)
+        for checkbox in self.view.model().match(
+            index,
+            Qt.DisplayRole,
+            Qt.Checked,
+            flags=Qt.MatchExactly,
+            hits=-1,
+        ):
+            self.view.selectionModel().select(
+                checkbox,
+                QItemSelectionModel.Rows | QItemSelectionModel.Deselect
+            )
+            self.view.model().setData(checkbox, Qt.Unchecked)
+        self.disable_action_btns()
+        if not self.select_all_btn.isEnabled():
+            self.select_all_btn.setEnabled(True)
 
     @Slot()
     def select_all(self):
-        if (index := self.view.model().index(0, 0)).isValid():
-            if self.view.isRowHidden(index.row(), QModelIndex()):
-                return
-            parent = QModelIndex()
-            for checkbox in self.view.model().match(
-                index,
-                Qt.DisplayRole,
-                Qt.Unchecked,
-                flags=Qt.MatchExactly,
-                hits=-1,
-            ):
-                if not self.view.isRowHidden(checkbox.row(), parent):
-                    self.view.selectionModel().select(
-                        checkbox,
-                        QItemSelectionModel.Rows | QItemSelectionModel.Select
-                    )
-                    self.view.model().setData(checkbox, Qt.Checked)
-            for checkbox in self.view.model().match(
-                index,
-                Qt.DisplayRole,
-                '0',
-                flags=Qt.MatchExactly,
-                hits=-1,
-            ):
-                if not self.view.isRowHidden(checkbox.row(), parent):
-                    self.view.selectionModel().select(
-                        checkbox,
-                        QItemSelectionModel.Rows | QItemSelectionModel.Select
-                    )
-                    self.view.model().setData(checkbox, Qt.Checked)
+        index = self.view.model().index(0, 0)
+        parent = QModelIndex()
+        item_checked = False
+        for checkbox in self.view.model().match(
+            index,
+            Qt.DisplayRole,
+            Qt.Unchecked,
+            flags=Qt.MatchExactly,
+            hits=-1,
+        ):
+            if not self.view.isRowHidden(checkbox.row(), parent):
+                self.view.selectionModel().select(
+                    checkbox,
+                    QItemSelectionModel.Rows | QItemSelectionModel.Select
+                )
+                self.view.model().setData(checkbox, Qt.Checked)
+                if not item_checked:
+                    item_checked = True
+        for checkbox in self.view.model().match(
+            index,
+            Qt.DisplayRole,
+            '0',
+            flags=Qt.MatchExactly,
+            hits=-1,
+        ):
+            if not self.view.isRowHidden(checkbox.row(), parent):
+                self.view.selectionModel().select(
+                    checkbox,
+                    QItemSelectionModel.Rows | QItemSelectionModel.Select
+                )
+                self.view.model().setData(checkbox, Qt.Checked)
+                if not item_checked:
+                    item_checked = True
+        if item_checked:
             self.enable_action_btns()
             self.select_all_btn.setEnabled(False)
 
     @Slot(bool)
     def download(self, checked, *, parent=QModelIndex()):
-        if (index := self.view.model().index(0, 0)).isValid():
-            for row in self.view.model().match(
-                index,
-                Qt.DisplayRole,
-                Qt.Checked,
-                flags=Qt.MatchExactly,
-                hits=-1,
-            ):
-                if not self.view.isRowHidden(row.row(), parent):
-                    print(row.siblingAtColumn(1).data())
+        index = self.view.model().index(0, 0)
+        for row in self.view.model().match(
+            index,
+            Qt.DisplayRole,
+            Qt.Checked,
+            flags=Qt.MatchExactly,
+            hits=-1,
+        ):
+            if not self.view.isRowHidden(row.row(), parent):
+                print(row.siblingAtColumn(1).data())
 
     @Slot(str)
     def search_completed(self, msg):

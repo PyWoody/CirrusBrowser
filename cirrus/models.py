@@ -524,12 +524,6 @@ class SearchResultsModel(QStandardItemModel):
             return 0
         return self.total_items_added
 
-    def data(self, index, role=Qt.DisplayRole):
-        if not index.isValid():
-            return
-        if role == Qt.DisplayRole:
-            return super().data(index, role)
-
     def hasChildren(self, parent=QModelIndex()):
         if not parent.isValid():
             return True
@@ -546,7 +540,6 @@ class SearchResultsModel(QStandardItemModel):
         items_to_fetch = min(100, self.total_items_added - self.current_row)
         if items_to_fetch <= 0:
             return
-        print(items_to_fetch)
         self.beginInsertRows(
             parent,
             self.current_row,
