@@ -512,13 +512,24 @@ class SearchResultsModel(QStandardItemModel):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.items_added = 0
-        self.root = self.invisibleRootItem() if parent is None else parent
+        self.total_items_added = 0
         self._stopped = False
-        self.valid_last_row = True
         self.current_row = 0
+        self.setColumnCount(4)
         self.setHorizontalHeaderLabels(
             ['', 'Name', 'Size', 'Last Modified']
         )
+
+    def rowCount(self, parent=QModelIndex()):
+        if parent.isValid():
+            return 0
+        return self.total_items_added
+
+    def data(self, index, role=Qt.DisplayRole):
+        if not index.isValid():
+            return
+        if role == Qt.DisplayRole:
+            return super().data(index, role)
 
     def hasChildren(self, parent=QModelIndex()):
         if not parent.isValid():
@@ -528,14 +539,13 @@ class SearchResultsModel(QStandardItemModel):
     def canFetchMore(self, parent=QModelIndex()):
         if parent.isValid():
             return False
-        return self.valid_last_row
+        return self.current_row < self.total_items_added
 
     def fetchMore(self, parent=QModelIndex()):
         if parent.isValid():
             return
         items_to_fetch = min(100, self.items_added)
         if items_to_fetch == 0:
-            self.valid_last_row = False
             return
         self.items_added -= items_to_fetch
         self.beginInsertRows(
@@ -546,10 +556,18 @@ class SearchResultsModel(QStandardItemModel):
         self.current_row += items_to_fetch
         self.endInsertRows()
 
-    @Slot()
     def completed(self):
-        if not len(self.rowCount()):
-            self.root.appendRow(QStandardItem('No results found.'))
+        if not self.rowCount():
+            self.appendRow(
+                [
+                    QStandardItem(),
+                    QStandardItem('No results found.'),
+                    QStandardItem(),
+                    QStandardItem(),
+                ]
+            )
+            self.total_items_added = 1
+            self.current_row = 1
 
     @Slot(object)
     def add_result(self, item):
@@ -565,13 +583,13 @@ class SearchResultsModel(QStandardItemModel):
                 else:
                     out_items.append(QStandardItem())
                 out_items[0].setData(item)
-                self.root.appendRow(out_items)
+                self.appendRow(out_items)
             except Exception as e:
                 print(str(e))
                 logging.warn(f'Could not add result: {item!r}')
             else:
-                self.valid_last_row = True
                 self.items_added += 1
+                self.total_items_added += 1
 
 
 class ListModel(QAbstractListModel):

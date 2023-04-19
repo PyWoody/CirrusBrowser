@@ -231,6 +231,7 @@ class SearchResultsWindow(QWidget):
     @Slot(str)
     def search_completed(self, msg):
         self.stop_btn.setEnabled(False)
+        self.view.model().completed()
         if self.view.model().rowCount():
             self.select_all_btn.setEnabled(True)
         if msg in {'Stopped', 'Aborted', 'Completed'}:
