@@ -510,6 +510,7 @@ class DigitalOceanFilesTreeModel(BaseS3FilesTreeModel):
 class SearchResultsModel(QStandardItemModel):
 
     def __init__(self, parent=None):
+        # TODO: Test an internal list of tuples version
         super().__init__(parent)
         self.total_items_added = 0
         self._stopped = False

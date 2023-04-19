@@ -4,8 +4,9 @@ import os
 from functools import partial
 
 from cirrus import items, utils, windows
+from cirrus.widgets import FlowLayout
 
-from PySide6.QtCore import QDate, Qt, Slot
+from PySide6.QtCore import QDate, QRect, Qt, Slot
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -17,8 +18,11 @@ from PySide6.QtWidgets import (
     QGridLayout,
     QLabel,
     QLineEdit,
+    QSizePolicy,
     QSpinBox,
+    QToolButton,
     QVBoxLayout,
+    QWidget,
 )
 
 # TODO: Standard overwite/compare/skip dialog
@@ -162,7 +166,12 @@ class SearchItemsDialog(QDialog):
 
     def __init__(self, *, parent=None, folders=None):
         super().__init__(parent)
-        self.resize(600, 200)
+        self.setSizePolicy(
+            QSizePolicy.Minimum,
+            QSizePolicy.Minimum
+        )
+        self.setMinimumWidth(600)
+        self.setMinimumHeight(200)
         self.parent = parent
         if folders:
             self.folders = folders
@@ -181,7 +190,7 @@ class SearchItemsDialog(QDialog):
                 self.folders = [items.LocalItem(user, is_dir=True)]
             else:
                 raise ValueError(f'No Item-type for {self.parent.type}')
-        self.setWindowTitle('Search Items')
+        self.setWindowTitle('Search')
         self.recursive = False
         self.button_box = QDialogButtonBox()
         self.search_btn = self.button_box.addButton(
@@ -242,28 +251,19 @@ class SearchItemsDialog(QDialog):
         self.layout = QVBoxLayout()
         self.label_checkboxes = []
         if len(self.folders) > 1:
-            self.layout.addWidget(QLabel('Searching in...'))
-            labels_layout = QGridLayout()
-            labels_layout.setColumnMinimumWidth(0, 10)
-            labels_layout.setColumnMinimumWidth(2, 5)
-            labels_layout.setColumnStretch(4, 1)
-            __processed = set()
-            for row, folder in enumerate(self.folders):
-                if folder.root not in __processed:
-                    label = QLabel()
-                    label.setTextFormat(Qt.RichText)
-                    label.setText(f'<p>{folder.root}</p>')
-                    checkbox = QCheckBox()
-                    checkbox.setCheckState(Qt.Checked)
-                    checkbox.stateChanged.connect(
-                        partial(self.checkbox_selected, label)
-                    )
-                    labels_layout.addWidget(checkbox, row, 1)
-                    labels_layout.addWidget(label, row, 3)
-                    self.label_checkboxes.append(checkbox)
-                    __processed.add(folder.root)
-            labels_layout.setRowStretch(row + 1, 1)
-            self.layout.addLayout(labels_layout)
+            flow_layout = FlowLayout()
+            _label = QLabel()
+            _label.setText('Locations:')
+            _label.setAlignment(Qt.AlignTop)
+            _label.setIndent(5)
+            flow_layout.addWidget(_label)
+            for root in sorted({i.root for i in self.folders}):
+                label = QToolButton()
+                label.setText(root)
+                label.setCheckable(True)
+                label.setChecked(True)
+                flow_layout.addWidget(label)
+            self.layout.addLayout(flow_layout)
         else:
             self.layout.addWidget(
                 QLabel(
