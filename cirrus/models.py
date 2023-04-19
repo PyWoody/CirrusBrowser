@@ -546,6 +546,7 @@ class SearchResultsModel(QStandardItemModel):
         items_to_fetch = min(100, self.total_items_added - self.current_row)
         if items_to_fetch <= 0:
             return
+        print(items_to_fetch)
         self.beginInsertRows(
             parent,
             self.current_row,
@@ -566,6 +567,28 @@ class SearchResultsModel(QStandardItemModel):
             )
             self.total_items_added = 1
             self.current_row = 1
+
+    @Slot(list)
+    def add_results(self, items):
+        for item in items:
+            if not self._stopped:
+                try:
+                    out_items = [QStandardItem('0')]  # Checkbox (Unchecked)
+                    out_items.append(QStandardItem(item.root))
+                    out_items.append(QStandardItem(str(item.size)))
+                    if item.mtime:
+                        out_items.append(
+                            QStandardItem(utils.date.to_iso(item.mtime))
+                        )
+                    else:
+                        out_items.append(QStandardItem())
+                    out_items[0].setData(item)
+                    self.appendRow(out_items)
+                except Exception as e:
+                    print(str(e))
+                    logging.warn(f'Could not add result: {item!r}')
+                else:
+                    self.total_items_added += 1
 
     @Slot(object)
     def add_result(self, item):

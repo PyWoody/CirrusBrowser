@@ -170,24 +170,29 @@ class SearchRunnable(BaseRunnable):
                     value
                 )
             )
-        cb_func = self.search_results_window.view.model().add_result
+        cb_func = self.search_results_window.view.model().add_results
         if self.dialog.recursive:
             search_func = self.recursive_search
         else:
             search_func = self.top_level_search
+        results = []
         for folder in self.dialog.folders:
             if self.stopped:
                 self.signals.finished.emit('Stopped')
                 self.signals.aborted.emit()
                 return
-            # TODO: Bulk updates
             for result in search_func(folder):
                 if self.stopped:
                     self.signals.finished.emit('Stopped')
                     self.signals.aborted.emit()
                     return
                 if all(f(result) for f in filters):
-                    self.signals.callback.emit(partial(cb_func, result))
+                    results.append(result)
+                    if len(results) % 100 == 0:
+                        self.signals.callback.emit(partial(cb_func, results))
+                        results = []
+        if results:
+            self.signals.callback.emit(partial(cb_func, results))
         self.signals.finished.emit('Completed')
 
     def recursive_search(self, item):
