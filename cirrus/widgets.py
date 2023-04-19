@@ -21,10 +21,11 @@ from PySide6.QtWidgets import (
 
 class FlowLayout(QLayout):
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, size_policy=QSizePolicy.ToolButton):
         super().__init__(parent)
         if parent is not None:
             self.setContentsMargins(QMargins(0, 0, 0, 0))
+        self.size_policy = size_policy
         self._item_list = []
 
     def __del__(self):
@@ -79,13 +80,13 @@ class FlowLayout(QLayout):
         for item in self._item_list:
             style = item.widget().style()
             layout_spacing_x = style.layoutSpacing(
-                QSizePolicy.ToolButton,
-                QSizePolicy.ToolButton,
+                self.size_policy,
+                self.size_policy,
                 Qt.Horizontal
             )
             layout_spacing_y = style.layoutSpacing(
-                QSizePolicy.ToolButton,
-                QSizePolicy.ToolButton,
+                self.size_policy,
+                self.size_policy,
                 Qt.Vertical
             )
             space_x = spacing + layout_spacing_x
