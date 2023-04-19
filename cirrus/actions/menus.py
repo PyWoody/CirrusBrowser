@@ -3,7 +3,7 @@ import os
 from functools import partial
 
 from cirrus import settings
-from .search import SearchAction
+from .search import SearchByPanelAction
 
 from PySide6.QtCore import Slot
 from PySide6.QtGui import QAction, QIcon
@@ -109,14 +109,14 @@ class RemovePanelOptionMenu(QMenu):
 class BuildSearchMenu(QMenu):
 
     def __init__(self, parent):
-        super().__init__('Search', parent)
+        super().__init__('Search by Panel', parent)
         self.setIcon(QIcon(os.path.join(settings.ICON_DIR, 'search.svg')))
         self.aboutToShow.connect(self.build_menu)
 
     def build_menu(self):
         self.clear()
         for panel, _ in self.parent().splitter_listing_panels:
-            action = SearchAction(panel.view)
+            action = SearchByPanelAction(panel.view)
             action.setIcon(QIcon())
             cap_type = ' '.join(
                 i.capitalize() for i in panel.view.type.split(' ')

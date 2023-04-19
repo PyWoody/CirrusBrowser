@@ -12,7 +12,7 @@ def file_listing_menu(menu, parent, files, folders, panels):
         {i for i in panels if i.root != parent.root},
         key=lambda x: x.root
     )
-    menu.addAction(actions.search.SearchAction(parent, folders))
+    menu.addAction(actions.search.SearchByPanelAction(parent, folders))
     menu.addAction(
         actions.listings.CreateDirectoryAction(parent, folders=folders)
     )

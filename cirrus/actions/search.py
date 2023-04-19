@@ -12,7 +12,33 @@ from PySide6.QtCore import Slot
 from PySide6.QtGui import QIcon
 
 
-class SearchAction(BaseAction):
+class SearchAllAction(BaseAction):
+
+    def __init__(self, parent, folders=None):
+        super().__init__(parent)
+        self.dialog = None
+        self.parent = parent
+        self.folders = folders
+        self.setIcon(QIcon(os.path.join(settings.ICON_DIR, 'search.svg')))
+        self.setText('Search All')
+        self.setStatusTip(
+            'Advanced controls for filtering with additional options'
+        )
+
+    def show_dialog(self):
+        self.dialog = dialogs.SearchItemsDialog(
+            parent=self.parent, folders=self.folders
+        )
+        self.dialog.accepted.connect(self.accepted.emit)
+        self.dialog.setModal(True)
+        self.dialog.show()
+        return True
+
+    def runnable(self):
+        return SearchRunnable(self.parent, self.dialog)
+
+
+class SearchByPanelAction(BaseAction):
 
     def __init__(self, parent, folders=None):
         super().__init__(parent)

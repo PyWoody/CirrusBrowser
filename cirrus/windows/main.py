@@ -67,7 +67,14 @@ class MainWindow(QMainWindow):
         file_menu.addAction(exit_action)
 
         actions_menu = menu.addMenu('&Actions')
-        # TODO: QMenu for search per selected panel
+        search_all_action = actions.search.SearchAllAction(self)
+        search_all_action.triggered.connect(search_all_action.show_dialog)
+        search_all_action.accepted.connect(
+            partial(
+                self.central_widget.menu_item_selected_cb, search_all_action
+            )
+        )
+        actions_menu.addAction(search_all_action)
         actions_menu.addMenu(
             actions.menus.BuildSearchMenu(self.central_widget)
         )
@@ -82,7 +89,7 @@ class MainWindow(QMainWindow):
     def keyPressEvent(self, event):
         key_combo = event.keyCombination().toCombined()
         if key_combo == QKeySequence(Qt.CTRL | Qt.Key_F):
-            action = actions.search.SearchAction(self)
+            action = actions.search.SearchAllAction(self)
             action.accepted.connect(
                 partial(self.central_widget.menu_item_selected_cb, action)
             )
