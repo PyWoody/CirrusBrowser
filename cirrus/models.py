@@ -511,7 +511,6 @@ class SearchResultsModel(QStandardItemModel):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.items_added = 0
         self.total_items_added = 0
         self._stopped = False
         self.current_row = 0
@@ -544,10 +543,9 @@ class SearchResultsModel(QStandardItemModel):
     def fetchMore(self, parent=QModelIndex()):
         if parent.isValid():
             return
-        items_to_fetch = min(100, self.items_added)
-        if items_to_fetch == 0:
+        items_to_fetch = min(100, self.total_items_added - self.current_row)
+        if items_to_fetch <= 0:
             return
-        self.items_added -= items_to_fetch
         self.beginInsertRows(
             parent,
             self.current_row,
@@ -588,7 +586,6 @@ class SearchResultsModel(QStandardItemModel):
                 print(str(e))
                 logging.warn(f'Could not add result: {item!r}')
             else:
-                self.items_added += 1
                 self.total_items_added += 1
 
 
