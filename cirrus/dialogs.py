@@ -82,19 +82,22 @@ class CreateDirectoryDialog(QDialog):
             options_layout.setColumnMinimumWidth(0, 10)
             options_layout.setColumnMinimumWidth(2, 5)
             options_layout.setColumnStretch(4, 1)
+            __processed = set()
             for row, folder in enumerate(folders):
-                path = os.path.join(self.parent.root, folder.root)
-                label = QLabel()
-                label.setTextFormat(Qt.RichText)
-                label.setText(f'<p>{path}</p>')
-                checkbox = QCheckBox()
-                checkbox.setCheckState(Qt.Checked)
-                checkbox.stateChanged.connect(
-                    partial(self.checkbox_selected, label)
-                )
-                options_layout.addWidget(checkbox, row, 1)
-                options_layout.addWidget(label, row, 3)
-                self.folder_options.append((path, checkbox, label))
+                if folder.root not in __processed:
+                    path = os.path.join(self.parent.root, folder.root)
+                    label = QLabel()
+                    label.setTextFormat(Qt.RichText)
+                    label.setText(f'<p>{path}</p>')
+                    checkbox = QCheckBox()
+                    checkbox.setCheckState(Qt.Checked)
+                    checkbox.stateChanged.connect(
+                        partial(self.checkbox_selected, label)
+                    )
+                    options_layout.addWidget(checkbox, row, 1)
+                    options_layout.addWidget(label, row, 3)
+                    self.folder_options.append((path, checkbox, label))
+                    __processed.add(folder.oot)
             options_layout.setRowStretch(row + 1, 1)
         else:
             message = QLabel('Please specify the directory path to be created')
@@ -237,31 +240,36 @@ class SearchItemsDialog(QDialog):
         form.addRow('Size:', self.size_layout)
 
         self.layout = QVBoxLayout()
-        self.layout.addWidget(QLabel('Searching in...'))
         self.label_checkboxes = []
         if len(self.folders) > 1:
+            self.layout.addWidget(QLabel('Searching in...'))
             labels_layout = QGridLayout()
             labels_layout.setColumnMinimumWidth(0, 10)
             labels_layout.setColumnMinimumWidth(2, 5)
             labels_layout.setColumnStretch(4, 1)
+            __processed = set()
             for row, folder in enumerate(self.folders):
-                label = QLabel()
-                label.setTextFormat(Qt.RichText)
-                label.setText(f'<p>{folder.root}</p>')
-                checkbox = QCheckBox()
-                checkbox.setCheckState(Qt.Checked)
-                checkbox.stateChanged.connect(
-                    partial(self.checkbox_selected, label)
-                )
-                labels_layout.addWidget(checkbox, row, 1)
-                labels_layout.addWidget(label, row, 3)
-                self.label_checkboxes.append(checkbox)
+                if folder.root not in __processed:
+                    label = QLabel()
+                    label.setTextFormat(Qt.RichText)
+                    label.setText(f'<p>{folder.root}</p>')
+                    checkbox = QCheckBox()
+                    checkbox.setCheckState(Qt.Checked)
+                    checkbox.stateChanged.connect(
+                        partial(self.checkbox_selected, label)
+                    )
+                    labels_layout.addWidget(checkbox, row, 1)
+                    labels_layout.addWidget(label, row, 3)
+                    self.label_checkboxes.append(checkbox)
+                    __processed.add(folder.root)
             labels_layout.setRowStretch(row + 1, 1)
             self.layout.addLayout(labels_layout)
         else:
-            label = QLabel(self.folders[0].root)
-            label.setIndent(15)
-            self.layout.addWidget(label)
+            self.layout.addWidget(
+                QLabel(
+                    f'Searching in... {self.folders[0].root}'
+                )
+            )
         self.layout.addLayout(form)
         self.layout.addWidget(self.button_box)
         self.setLayout(self.layout)

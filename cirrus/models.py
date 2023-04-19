@@ -511,10 +511,10 @@ class SearchResultsModel(QStandardItemModel):
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.items_added = 0
         self.root = self.invisibleRootItem() if parent is None else parent
         self._stopped = False
         self.valid_last_row = True
-        self.step_amount = 100
         self.current_row = 0
         self.setHorizontalHeaderLabels(
             ['', 'Name', 'Size', 'Last Modified']
@@ -533,21 +533,18 @@ class SearchResultsModel(QStandardItemModel):
     def fetchMore(self, parent=QModelIndex()):
         if parent.isValid():
             return
-        new_current_row = self.current_row + self.step_amount
-        self.beginInsertRows(parent, self.current_row, new_current_row)
-        self.current_row = new_current_row
-        self.endInsertRows()
-        if not self.data(self.index(self.current_row, 0)):
-            last_row = self.current_row - 1
-            while last_row > 0:
-                if self.data(self.index(last_row, 0)):
-                    break
-                last_row -= 1
-            self.current_row = last_row + 1
+        items_to_fetch = min(100, self.items_added)
+        if items_to_fetch == 0:
             self.valid_last_row = False
-
-    def lessThan(self, *args, **kwargs):
-        print('here')
+            return
+        self.items_added -= items_to_fetch
+        self.beginInsertRows(
+            parent,
+            self.current_row,
+            self.current_row + items_to_fetch - 1
+        )
+        self.current_row += items_to_fetch
+        self.endInsertRows()
 
     @Slot()
     def completed(self):
@@ -568,11 +565,13 @@ class SearchResultsModel(QStandardItemModel):
                 else:
                     out_items.append(QStandardItem())
                 out_items[0].setData(item)
-                self.root.insertRow(self.rowCount(), out_items)
-                self.valid_last_row = True
+                self.root.appendRow(out_items)
             except Exception as e:
                 print(str(e))
                 logging.warn(f'Could not add result: {item!r}')
+            else:
+                self.valid_last_row = True
+                self.items_added += 1
 
 
 class ListModel(QAbstractListModel):

@@ -5,7 +5,7 @@ from html.parser import HTMLParser
 
 from . import date, files, threads
 
-from PySide6.QtCore import Slot
+from PySide6.QtCore import QTimer, Slot
 from PySide6.QtWidgets import QFrame
 
 
@@ -42,6 +42,14 @@ class VLine(QFrame):
 def execute_callback(func):
     try:
         return func()
+    except Exception as e:
+        logging.warn(f'Failed to execute {func!r} with error {e}')
+
+
+@Slot(partial)
+def execute_callback_ss(func):
+    try:
+        return QTimer.singleShot(1, func)
     except Exception as e:
         logging.warn(f'Failed to execute {func!r} with error {e}')
 

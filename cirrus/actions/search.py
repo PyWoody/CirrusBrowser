@@ -154,6 +154,7 @@ class SearchRunnable(BaseRunnable):
                 self.signals.finished.emit('Stopped')
                 self.signals.aborted.emit()
                 return
+            # TODO: Bulk updates
             for result in search_func(folder):
                 if self.stopped:
                     self.signals.finished.emit('Stopped')

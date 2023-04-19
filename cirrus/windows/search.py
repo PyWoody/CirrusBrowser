@@ -9,8 +9,8 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QPushButton,
-    QToolButton,
     QVBoxLayout,
+    QToolButton,
     QWidget,
 )
 
@@ -59,12 +59,14 @@ class SearchResultsWindow(QWidget):
         if len(folders) > 1:
             label_layout = QHBoxLayout()
             label_layout.addWidget(QLabel('Locations:'))
+            # TODO: Add a status bar to indicate the root being searched
             for folder in folders:
                 label = QToolButton()
                 label_action = QAction()
                 label_action.setText(folder.root)
                 label_action.setCheckable(True)
                 label_action.setChecked(True)
+                label_action.setEnabled(False)
                 label.triggered.connect(
                     partial(self.label_toggled, folder.root)
                 )
@@ -88,7 +90,7 @@ class SearchResultsWindow(QWidget):
         elif key_combo == QKeySequence(Qt.CTRL | Qt.Key_W):
             self.close()
         else:
-            return super().keyPressEvent(event)
+            super().keyPressEvent(event)
 
     @Slot(str, object)
     def label_toggled(self, root, action):
@@ -162,8 +164,6 @@ class SearchResultsWindow(QWidget):
     @Slot()
     def clear_selection(self):
         if (index := self.view.model().index(0, 0)).isValid():
-            top_left = None
-            bottom_right = None
             for checkbox in self.view.model().match(
                 index,
                 Qt.DisplayRole,
@@ -176,15 +176,6 @@ class SearchResultsWindow(QWidget):
                     QItemSelectionModel.Rows | QItemSelectionModel.Deselect
                 )
                 self.view.model().setData(checkbox, Qt.Unchecked)
-                if top_left is None:
-                    top_left = checkbox
-                elif top_left.row() > checkbox.row():
-                    top_left = checkbox
-                if bottom_right is None:
-                    bottom_right = checkbox
-                elif bottom_right.row() < checkbox.row():
-                    bottom_right = checkbox
-            self.view.model().dataChanged.emit(top_left, bottom_right)
             self.disable_action_btns()
             if not self.select_all_btn.isEnabled():
                 self.select_all_btn.setEnabled(True)
@@ -195,8 +186,6 @@ class SearchResultsWindow(QWidget):
             if self.view.isRowHidden(index.row(), QModelIndex()):
                 return
             parent = QModelIndex()
-            top_left = None
-            bottom_right = None
             for checkbox in self.view.model().match(
                 index,
                 Qt.DisplayRole,
@@ -210,14 +199,6 @@ class SearchResultsWindow(QWidget):
                         QItemSelectionModel.Rows | QItemSelectionModel.Select
                     )
                     self.view.model().setData(checkbox, Qt.Checked)
-                    if top_left is None:
-                        top_left = checkbox
-                    elif top_left.row() > checkbox.row():
-                        top_left = checkbox
-                    if bottom_right is None:
-                        bottom_right = checkbox
-                    elif bottom_right.row() < checkbox.row():
-                        bottom_right = checkbox
             for checkbox in self.view.model().match(
                 index,
                 Qt.DisplayRole,
@@ -231,15 +212,6 @@ class SearchResultsWindow(QWidget):
                         QItemSelectionModel.Rows | QItemSelectionModel.Select
                     )
                     self.view.model().setData(checkbox, Qt.Checked)
-                    if top_left is None:
-                        top_left = checkbox
-                    elif top_left.row() > checkbox.row():
-                        top_left = checkbox
-                    if bottom_right is None:
-                        bottom_right = checkbox
-                    elif bottom_right.row() < checkbox.row():
-                        bottom_right = checkbox
-            self.view.model().dataChanged.emit(top_left, bottom_right)
             self.enable_action_btns()
             self.select_all_btn.setEnabled(False)
 
@@ -263,6 +235,11 @@ class SearchResultsWindow(QWidget):
             self.select_all_btn.setEnabled(True)
         if msg in {'Stopped', 'Aborted', 'Completed'}:
             self.setWindowTitle(f'Search Results - {msg}')
+            for label in self.label_actions:
+                if not label.isEnabled():
+                    label.setEnabled(True)
+                    label.setCheckable(True)
+                    label.setChecked(True)
         else:
             self.setWindowTitle('Search Results')
 
