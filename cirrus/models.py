@@ -516,7 +516,7 @@ class SearchResultsModel(QAbstractTableModel):
         self.current_row = 0
         self._stopped = False
 
-    def columnCount(self, parent=QModelIndex()): 
+    def columnCount(self, parent=QModelIndex()):
         return 4
 
     def rowCount(self, parent=QModelIndex()):
@@ -549,8 +549,7 @@ class SearchResultsModel(QAbstractTableModel):
         if role == Qt.DisplayRole:
             return self.items[index.row()][index.column()]
         if role == Qt.CheckStateRole and index.column() == 0:
-            status = self.items[index.row()][index.column()]
-            if status == Qt.Checked:
+            if self.items[index.row()][index.column()] == Qt.Checked:
                 return Qt.Checked
             return Qt.Unchecked
 
@@ -604,10 +603,32 @@ class SearchResultsModel(QAbstractTableModel):
             self.items[index.row()][index.column()] = value
         except Exception as e:
             cls_name = self.__class__.__name__
-            logging.warn(f'Could not setData {value} on {index}: {e:!r}')
+            logging.warn(
+                f'Could not setData {value} on {index} in {cls_name}: {e:!r}'
+            )
             return False
         else:
             self.dataChanged.emit(index, index)
+            return True
+
+    def bulkSetData(self, indexes, value, role=Qt.EditRole):
+        try:
+            for index in indexes:
+                if index.column() == 0 and role != Qt.CheckStateRole:
+                    continue
+                if value == Qt.Checked.value or value == Qt.Checked:
+                    value = Qt.Checked
+                else:
+                    value = Qt.Unchecked
+                self.items[index.row()][index.column()] = value
+        except Exception as e:
+            cls_name = self.__class__.__name__
+            logging.warn(
+                f'Could not setData {value} on {index} in {cls_name}: {e:!r}'
+            )
+            return False
+        else:
+            self.dataChanged.emit(indexes[0], indexes[-1])
             return True
 
     def completed(self):

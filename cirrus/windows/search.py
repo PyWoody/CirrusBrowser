@@ -4,7 +4,15 @@ from cirrus.models import SearchResultsModel
 from cirrus.views.search import SearchResultsTreeView
 from cirrus.widgets import FlowLayout
 
-from PySide6.QtCore import Qt, QItemSelectionModel, QModelIndex, Slot, Signal
+from PySide6.QtCore import (
+    Qt,
+    QItemSelectionModel,
+    QItemSelection,
+    QModelIndex,
+    QTimer,
+    Slot,
+    Signal,
+)
 from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtWidgets import (
     QHBoxLayout,
@@ -173,6 +181,7 @@ class SearchResultsWindow(QWidget):
     @Slot()
     def clear_selection(self):
         index = self.view.model().index(0, 0)
+        checkboxes = []
         for checkbox in self.view.model().match(
             index,
             Qt.CheckStateRole,
@@ -180,22 +189,45 @@ class SearchResultsWindow(QWidget):
             flags=Qt.MatchExactly,
             hits=-1,
         ):
-            self.view.selectionModel().select(
-                checkbox,
-                QItemSelectionModel.Rows | QItemSelectionModel.Deselect
-            )
-            self.view.model().setData(
-                checkbox, Qt.Unchecked, role=Qt.CheckStateRole
-            )
-        self.disable_action_btns()
-        if not self.select_all_btn.isEnabled():
-            self.select_all_btn.setEnabled(True)
+            checkboxes.append(checkbox)
+        if checkboxes:
+            checkboxes.sort(key=lambda x: x.row())
+            batch_size = 100
+            head = 0
+            tail = batch_size
+            group = checkboxes[head:tail]
+            while group:
+                QTimer.singleShot(
+                    0,
+                    partial(
+                        self.view.model().bulkSetData,
+                        group,
+                        Qt.Unchecked,
+                        Qt.CheckStateRole
+                    )
+                )
+                QTimer.singleShot(
+                    0,
+                    partial(
+                        self.view.selectionModel().select,
+                        QItemSelection(group[0], group[-1]),
+                        QItemSelectionModel.Rows | QItemSelectionModel.Deselect
+                    )
+                )
+                head = tail
+                tail += batch_size
+                group = checkboxes[head:tail]
+            QTimer.singleShot(0, self.disable_action_btns)
+            if not self.select_all_btn.isEnabled():
+                QTimer.singleShot(
+                    0, partial(self.select_all_btn.setEnabled, True)
+                )
 
     @Slot()
     def select_all(self):
         index = self.view.model().index(0, 0)
         parent = QModelIndex()
-        item_checked = False
+        checkboxes = []
         for checkbox in self.view.model().match(
             index,
             Qt.CheckStateRole,
@@ -204,18 +236,38 @@ class SearchResultsWindow(QWidget):
             hits=-1,
         ):
             if not self.view.isRowHidden(checkbox.row(), parent):
-                self.view.selectionModel().select(
-                    checkbox,
-                    QItemSelectionModel.Rows | QItemSelectionModel.Select
+                checkboxes.append(checkbox)
+        if checkboxes:
+            checkboxes.sort(key=lambda x: x.row())
+            batch_size = 100
+            head = 0
+            tail = batch_size
+            group = checkboxes[head:tail]
+            while group:
+                QTimer.singleShot(
+                    0,
+                    partial(
+                        self.view.model().bulkSetData,
+                        group,
+                        Qt.Checked,
+                        Qt.CheckStateRole
+                    )
                 )
-                self.view.model().setData(
-                    checkbox, Qt.Checked, role=Qt.CheckStateRole
+                QTimer.singleShot(
+                    0,
+                    partial(
+                        self.view.selectionModel().select,
+                        QItemSelection(group[0], group[-1]),
+                        QItemSelectionModel.Rows | QItemSelectionModel.Select
+                    )
                 )
-                if not item_checked:
-                    item_checked = True
-        if item_checked:
-            self.enable_action_btns()
-            self.select_all_btn.setEnabled(False)
+                head = tail
+                tail += batch_size
+                group = checkboxes[head:tail]
+            QTimer.singleShot(0, self.enable_action_btns)
+            QTimer.singleShot(
+                0, partial(self.select_all_btn.setEnabled, False)
+            )
 
     @Slot(bool)
     def download(self, checked, *, parent=QModelIndex()):
