@@ -135,8 +135,12 @@ class SearchResultsWindow(QWidget):
             ):
                 self.view.setRowHidden(row.row(), parent, True)
                 row_sibling = row.siblingAtColumn(0)
-                if self.view.model().data(row_sibling) == Qt.Checked:
-                    self.view.model().setData(row_sibling, Qt.Unchecked)
+                if self.view.model().data(
+                    row_sibling, role=Qt.CheckStateRole
+                ) == Qt.Checked:
+                    self.view.model().setData(
+                        row_sibling, Qt.Unchecked, role=Qt.CheckStateRole
+                    )
                     self.view.selectionModel().select(
                         row,
                         QItemSelectionModel.Rows |
@@ -171,8 +175,8 @@ class SearchResultsWindow(QWidget):
         index = self.view.model().index(0, 0)
         for checkbox in self.view.model().match(
             index,
-            Qt.DisplayRole,
-            Qt.Checked,
+            Qt.CheckStateRole,
+            Qt.Checked.value,
             flags=Qt.MatchExactly,
             hits=-1,
         ):
@@ -180,7 +184,9 @@ class SearchResultsWindow(QWidget):
                 checkbox,
                 QItemSelectionModel.Rows | QItemSelectionModel.Deselect
             )
-            self.view.model().setData(checkbox, Qt.Unchecked)
+            self.view.model().setData(
+                checkbox, Qt.Unchecked, role=Qt.CheckStateRole
+            )
         self.disable_action_btns()
         if not self.select_all_btn.isEnabled():
             self.select_all_btn.setEnabled(True)
@@ -192,8 +198,8 @@ class SearchResultsWindow(QWidget):
         item_checked = False
         for checkbox in self.view.model().match(
             index,
-            Qt.DisplayRole,
-            Qt.Unchecked,
+            Qt.CheckStateRole,
+            Qt.Unchecked.value,
             flags=Qt.MatchExactly,
             hits=-1,
         ):
@@ -202,22 +208,9 @@ class SearchResultsWindow(QWidget):
                     checkbox,
                     QItemSelectionModel.Rows | QItemSelectionModel.Select
                 )
-                self.view.model().setData(checkbox, Qt.Checked)
-                if not item_checked:
-                    item_checked = True
-        for checkbox in self.view.model().match(
-            index,
-            Qt.DisplayRole,
-            '0',
-            flags=Qt.MatchExactly,
-            hits=-1,
-        ):
-            if not self.view.isRowHidden(checkbox.row(), parent):
-                self.view.selectionModel().select(
-                    checkbox,
-                    QItemSelectionModel.Rows | QItemSelectionModel.Select
+                self.view.model().setData(
+                    checkbox, Qt.Checked, role=Qt.CheckStateRole
                 )
-                self.view.model().setData(checkbox, Qt.Checked)
                 if not item_checked:
                     item_checked = True
         if item_checked:
@@ -229,8 +222,8 @@ class SearchResultsWindow(QWidget):
         index = self.view.model().index(0, 0)
         for row in self.view.model().match(
             index,
-            Qt.DisplayRole,
-            Qt.Checked,
+            Qt.CheckStateRole,
+            Qt.Checked.value,
             flags=Qt.MatchExactly,
             hits=-1,
         ):
@@ -290,8 +283,8 @@ class SearchResultsWindow(QWidget):
         else:
             if not self.view.model().match(
                 index,
-                Qt.DisplayRole,
-                Qt.Unchecked,
+                Qt.CheckStateRole,
+                Qt.Unchecked.value,
                 flags=Qt.MatchExactly
             ):
                 if self.select_all_btn.isEnabled():

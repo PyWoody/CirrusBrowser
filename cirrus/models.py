@@ -8,6 +8,7 @@ from cirrus.statuses import TransferPriority
 
 from PySide6.QtCore import (
     QAbstractListModel,
+    QAbstractTableModel,
     QModelIndex,
     Qt,
     Signal,
@@ -507,38 +508,31 @@ class DigitalOceanFilesTreeModel(BaseS3FilesTreeModel):
             self.valid_last_row = True
 
 
-class SearchResultsModel(QStandardItemModel):
+class SearchResultsModel(QAbstractTableModel):
 
-    def __init__(self, parent=None):
-        # TODO: Test an internal list of tuples version
+    def __init__(self, parent=None, items=None):
         super().__init__(parent)
-        self.total_items_added = 0
-        self._stopped = False
+        self.items = list(items) if items is not None else []
         self.current_row = 0
-        self.setColumnCount(4)
-        self.setHorizontalHeaderLabels(
-            ['', 'Name', 'Size', 'Last Modified']
-        )
+        self._stopped = False
+
+    def columnCount(self, parent=QModelIndex()): 
+        return 4
 
     def rowCount(self, parent=QModelIndex()):
         if parent.isValid():
             return 0
-        return self.total_items_added
-
-    def hasChildren(self, parent=QModelIndex()):
-        if not parent.isValid():
-            return True
-        return False
+        return len(self.items)
 
     def canFetchMore(self, parent=QModelIndex()):
         if parent.isValid():
             return False
-        return self.current_row < self.total_items_added
+        return self.current_row < len(self.items)
 
     def fetchMore(self, parent=QModelIndex()):
         if parent.isValid():
             return
-        items_to_fetch = min(100, self.total_items_added - self.current_row)
+        items_to_fetch = min(100, len(self.items) - self.current_row)
         if items_to_fetch <= 0:
             return
         self.beginInsertRows(
@@ -549,51 +543,110 @@ class SearchResultsModel(QStandardItemModel):
         self.current_row += items_to_fetch
         self.endInsertRows()
 
+    def data(self, index, role=Qt.DisplayRole):
+        if not index.isValid():
+            return
+        if role == Qt.DisplayRole:
+            return self.items[index.row()][index.column()]
+        if role == Qt.CheckStateRole and index.column() == 0:
+            status = self.items[index.row()][index.column()]
+            if status == Qt.Checked:
+                return Qt.Checked
+            return Qt.Unchecked
+
+    def headerData(self, section, orientation, role=Qt.DisplayRole):
+        if orientation == Qt.Horizontal and role == Qt.DisplayRole:
+            if section == 0:
+                return ''
+            elif section == 1:
+                return 'Name'
+            elif section == 2:
+                return 'Size'
+            elif section == 3:
+                return 'Last Modified'
+
+    @Slot(QModelIndex)
+    def flags(self, index):
+        if index.isValid():
+            if index.column() == 0:
+                return Qt.ItemNeverHasChildren | \
+                       Qt.ItemIsEnabled | \
+                       Qt.ItemIsUserCheckable | \
+                       Qt.ItemIsSelectable
+            return Qt.ItemIsEnabled | \
+                   Qt.ItemNeverHasChildren | \
+                   Qt.ItemIsSelectable
+        return Qt.NoItemFlags
+
+    def insertRows(self, row, count, parent=QModelIndex()):
+        try:
+            self.beginInsertRows(parent, row, count)
+            self.endInsertRows()
+        except Exception as e:
+            cls_name = self.__class__.__name__
+            logging.warn(
+                (f'Could not add {count} new '
+                 f'rows starting from {row} to {cls_name}: {e:!r}')
+            )
+            return False
+        else:
+            return True
+
+    def setData(self, index, value, role=Qt.EditRole):
+        try:
+            if index.column() == 0 and role == Qt.CheckStateRole:
+                if value == Qt.Checked.value or value == Qt.Checked:
+                    value = Qt.Checked
+                else:
+                    value = Qt.Unchecked
+            else:
+                return False
+            self.items[index.row()][index.column()] = value
+        except Exception as e:
+            cls_name = self.__class__.__name__
+            logging.warn(f'Could not setData {value} on {index}: {e:!r}')
+            return False
+        else:
+            self.dataChanged.emit(index, index)
+            return True
+
     def completed(self):
         if not self.rowCount():
-            self.appendRow(
-                [
-                    QStandardItem(),
-                    QStandardItem('No results found.'),
-                    QStandardItem(),
-                    QStandardItem(),
-                ]
-            )
-            self.total_items_added = 1
-            self.current_row = 1
+            # TODO: This is broken I think
+            self.items = [['', 'No items found']]
+            self.insertRows(0, 1)
 
     @Slot(list)
     def add_results(self, items):
         for item in items:
-            self.add_result(item)
+            self.items.append(
+                [
+                    Qt.Unchecked,
+                    item.root,
+                    item.size,
+                    utils.date.to_iso(item.mtime) if item.mtime else ''
+                ]
+            )
+        return self.insertRows(self.rowCount(), len(items))
 
     @Slot(object)
     def add_result(self, item):
-        if not self._stopped:
-            try:
-                out_items = [QStandardItem('0')]  # Checkbox (Unchecked)
-                out_items.append(QStandardItem(item.root))
-                out_items.append(QStandardItem(str(item.size)))
-                if item.mtime:
-                    out_items.append(
-                        QStandardItem(utils.date.to_iso(item.mtime))
-                    )
-                else:
-                    out_items.append(QStandardItem())
-                out_items[0].setData(item)
-                self.appendRow(out_items)
-            except Exception as e:
-                print(str(e))
-                logging.warn(f'Could not add result: {item!r}')
-            else:
-                self.total_items_added += 1
+        self.items.append(
+            [
+                Qt.Unchecked,
+                item.root,
+                item.size,
+                utils.date.to_iso(item.mtime) if item.mtime else ''
+            ]
+        )
+        return self.insertRows(self.rowCount(), 1)
 
 
 class ListModel(QAbstractListModel):
 
-    def __init__(self, items):
+    def __init__(self, items=None):
         super().__init__()
-        self.items = list(items)
+        self.items = list(items) if items is not None else []
 
     def rowCount(self, parent=QModelIndex()):
         return len(self.items)

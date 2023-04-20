@@ -65,7 +65,7 @@ class SearchResultsTreeView(QTreeView):
         if index.isValid() and index.column() == 0:
             indexes = [index]
             if self.shift_down and self.last_checked_index.isValid():
-                check = self.last_checked_index.data()
+                data = self.last_checked_index.data()
                 if index.row() > self.last_checked_index.row():
                     indexes_range = range(
                         self.last_checked_index.row(), index.row()
@@ -77,15 +77,16 @@ class SearchResultsTreeView(QTreeView):
                 for row in indexes_range:
                     indexes.append(self.model().index(row, 0))
             else:
-                if index.data() == Qt.Checked:
-                    check = Qt.Unchecked
-                else:
-                    check = Qt.Checked
+                data = index.data()
+            if data == Qt.Checked.value:
+                check = Qt.Checked
+            else:
+                check = Qt.Unchecked
             self.last_checked_index = index
             top = None
             bottom = None
             for index in indexes:
-                if index.model().setData(index, check):
+                if index.model().setData(index, check, role=Qt.CheckStateRole):
                     if check == Qt.Checked:
                         self.checked.emit()
                         self.selectionModel().select(
@@ -109,22 +110,16 @@ class SearchResultsTreeView(QTreeView):
             if check == Qt.Unchecked:
                 if not self.model().match(
                     index,
-                    Qt.DisplayRole,
-                    Qt.Checked,
+                    Qt.CheckStateRole,
+                    Qt.Checked.value,
                     flags=Qt.MatchExactly
                 ):
                     self.all_unchecked.emit()
             else:
                 if not self.model().match(
                     index,
-                    Qt.DisplayRole,
-                    Qt.Unchecked,
+                    Qt.CheckStateRole,
+                    Qt.Unchecked.value,
                     flags=Qt.MatchExactly
                 ):
-                    if not self.model().match(
-                        index,
-                        Qt.DisplayRole,
-                        '0',
-                        flags=Qt.MatchExactly
-                    ):
-                        self.all_checked.emit()
+                    self.all_checked.emit()
