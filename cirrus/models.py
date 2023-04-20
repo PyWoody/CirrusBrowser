@@ -612,8 +612,7 @@ class SearchResultsModel(QAbstractTableModel):
 
     def completed(self):
         if not self.rowCount():
-            # TODO: This is broken I think
-            self.items = [['', 'No items found']]
+            self.items = [['', 'No items found', '', '']]
             self.insertRows(0, 1)
 
     @Slot(list)

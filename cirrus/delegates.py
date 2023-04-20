@@ -15,13 +15,12 @@ class CheckBoxDelegate(QItemDelegate):
 
     def paint(self, painter, option, index):
         status = index.data(role=Qt.CheckStateRole)
-        if status != '':
-            if status == Qt.Checked.value:
-                status = Qt.Checked
-            else:
-                status = Qt.Unchecked
-            self.drawCheck(painter, option, option.rect, status)
-            self.drawFocus(painter, option, option.rect)
+        if status == Qt.Checked.value:
+            status = Qt.Checked
+        else:
+            status = Qt.Unchecked
+        self.drawCheck(painter, option, option.rect, status)
+        self.drawFocus(painter, option, option.rect)
 
 
 class ProgressBarDelegate(QStyledItemDelegate):
