@@ -605,4 +605,7 @@ class ListModel(QAbstractListModel):
             return self.items[index.row()]
 
     def update_items(self, items):
-        self.items = list(items)
+        if items:
+            self.beginResetModel()
+            self.items = list(items)
+            self.endResetModel()

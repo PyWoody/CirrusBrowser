@@ -109,7 +109,9 @@ class NavBarLineEdit(QLineEdit):
 
     def __init__(self, parent):
         super().__init__(parent)
+        self.model = ListModel([])
         self.view = NavBarListView(parent)
+        self.view.setModel(self.model)
         self.view.selection_made.connect(self.selection_made.emit)
         self.returnPressed.connect(self.clear_focus)
 
@@ -118,14 +120,7 @@ class NavBarLineEdit(QLineEdit):
         for item in items:
             if item not in cleaned_items:
                 cleaned_items.append(item)
-        model = ListModel(cleaned_items)
-        prev_model = self.view.model()
-        prev_selection_model = self.view.selectionModel()
-        self.view.setModel(model)
-        if prev_model:
-            prev_model.deleteLater()
-        if prev_selection_model:
-            prev_selection_model.deleteLater()
+        self.model.update_items(cleaned_items)
 
     @Slot()
     def clear_focus(self):
