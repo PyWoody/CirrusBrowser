@@ -57,8 +57,10 @@ class CentralWidgetWindow(QWidget):  # Terrible name
 
         # Views
         # Files View (Splittable)
+        # TODO: Utilie the saveState, getState from QSplitter
         self.splitter_listing_panels = []
         self.listings_view_splitter = QSplitter()
+        self.listings_view_splitter.setChildrenCollapsible(False)
 
         # Executor
         self.current_transfers = set()
@@ -186,6 +188,7 @@ class CentralWidgetWindow(QWidget):  # Terrible name
     def add_splitter_panel(self, account, existing_panel=False):
         if listing := windows.types.get(account['Type'].lower()):
             window = listing(account)
+            window.setMinimumSize(350, 250)
         else:
             logging.warn(f'No valid Type found for {account}')
             return

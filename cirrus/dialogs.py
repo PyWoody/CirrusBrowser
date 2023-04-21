@@ -172,16 +172,19 @@ class SearchItemsDialog(QDialog):
         self.setMinimumWidth(600)
         self.setMinimumHeight(200)
         self.parent = parent
+        __processed = set()
         self.folders = []
         if folders:
-            __processed = set()
             for folder in folders:
+                print(folder.root)
                 if folder.root not in __processed:
                     self.folders.append(folder)
                     __processed.add(folder.root)
         elif isinstance(parent, windows.main.MainWindow):
             for _, account in parent.central_widget.splitter_listing_panels:
-                self.folders.append(items.account_to_item(account))
+                if account['Root'].rstrip('/') not in __processed:
+                    self.folders.append(items.account_to_item(account))
+                    __processed.add(account['Root'].rstrip('/'))
         else:
             # TODO: Re-evaluate account v. user
             user = self.parent.user.copy()
@@ -193,7 +196,7 @@ class SearchItemsDialog(QDialog):
                 self.folders.append(items.LocalItem(user, is_dir=True))
             else:
                 raise ValueError(f'No Item-type for {self.parent.type}')
-        self.folders = sorted(self.folders, key=lambda x: x.root)
+        self.folders.sort(key=lambda x: x.root)
         self.setWindowTitle('Search')
         self.recursive = False
         self.button_box = QDialogButtonBox()
