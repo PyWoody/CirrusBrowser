@@ -1,3 +1,6 @@
+import heapq
+import itertools
+
 from functools import partial
 
 from cirrus.models import SearchResultsModel
@@ -180,8 +183,10 @@ class SearchResultsWindow(QWidget):
 
     @Slot()
     def clear_selection(self):
+        self.disable_action_btns()
+        self.select_all_btn.setEnabled(True)
         index = self.view.model().index(0, 0)
-        checkboxes = []
+        checkboxes_heap = []
         for checkbox in self.view.model().match(
             index,
             Qt.CheckStateRole,
@@ -189,13 +194,11 @@ class SearchResultsWindow(QWidget):
             flags=Qt.MatchExactly,
             hits=-1,
         ):
-            checkboxes.append(checkbox)
-        if checkboxes:
-            checkboxes.sort(key=lambda x: x.row())
+            heapq.heappush(checkboxes_heap, (checkbox.row(), checkbox))
+        if checkboxes_heap:
             batch_size = 100
-            head = 0
-            tail = batch_size
-            group = checkboxes[head:tail]
+            g_checkboxes = (i for _, i in checkboxes_heap)
+            group = list(itertools.islice(g_checkboxes, 0, batch_size))
             while group:
                 QTimer.singleShot(
                     0,
@@ -214,20 +217,15 @@ class SearchResultsWindow(QWidget):
                         QItemSelectionModel.Rows | QItemSelectionModel.Deselect
                     )
                 )
-                head = tail
-                tail += batch_size
-                group = checkboxes[head:tail]
-            QTimer.singleShot(0, self.disable_action_btns)
-            if not self.select_all_btn.isEnabled():
-                QTimer.singleShot(
-                    0, partial(self.select_all_btn.setEnabled, True)
-                )
+                group = list(itertools.islice(g_checkboxes, 0, batch_size))
 
     @Slot()
     def select_all(self):
+        self.enable_action_btns()
+        self.select_all_btn.setEnabled(False)
         index = self.view.model().index(0, 0)
         parent = QModelIndex()
-        checkboxes = []
+        checkboxes_heap = []
         for checkbox in self.view.model().match(
             index,
             Qt.CheckStateRole,
@@ -236,13 +234,11 @@ class SearchResultsWindow(QWidget):
             hits=-1,
         ):
             if not self.view.isRowHidden(checkbox.row(), parent):
-                checkboxes.append(checkbox)
-        if checkboxes:
-            checkboxes.sort(key=lambda x: x.row())
+                heapq.heappush(checkboxes_heap, (checkbox.row(), checkbox))
+        if checkboxes_heap:
             batch_size = 100
-            head = 0
-            tail = batch_size
-            group = checkboxes[head:tail]
+            g_checkboxes = (i for _, i in checkboxes_heap)
+            group = list(itertools.islice(g_checkboxes, 0, batch_size))
             while group:
                 QTimer.singleShot(
                     0,
@@ -261,16 +257,11 @@ class SearchResultsWindow(QWidget):
                         QItemSelectionModel.Rows | QItemSelectionModel.Select
                     )
                 )
-                head = tail
-                tail += batch_size
-                group = checkboxes[head:tail]
-            QTimer.singleShot(0, self.enable_action_btns)
-            QTimer.singleShot(
-                0, partial(self.select_all_btn.setEnabled, False)
-            )
+                group = list(itertools.islice(g_checkboxes, 0, batch_size))
 
     @Slot(bool)
     def download(self, checked, *, parent=QModelIndex()):
+        # TODO: This will be an action instead
         index = self.view.model().index(0, 0)
         for row in self.view.model().match(
             index,

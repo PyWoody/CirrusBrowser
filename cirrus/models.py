@@ -614,12 +614,13 @@ class SearchResultsModel(QAbstractTableModel):
     def bulkSetData(self, indexes, value, role=Qt.EditRole):
         try:
             for index in indexes:
-                if index.column() == 0 and role != Qt.CheckStateRole:
-                    continue
-                if value == Qt.Checked.value or value == Qt.Checked:
-                    value = Qt.Checked
-                else:
-                    value = Qt.Unchecked
+                if index.column() == 0:
+                    if role != Qt.CheckStateRole:
+                        continue
+                    if value == Qt.Checked.value or value == Qt.Checked:
+                        value = Qt.Checked
+                    else:
+                        value = Qt.Unchecked
                 self.items[index.row()][index.column()] = value
         except Exception as e:
             cls_name = self.__class__.__name__
