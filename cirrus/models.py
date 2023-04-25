@@ -295,7 +295,9 @@ class BaseS3FilesTreeModel(QStandardItemModel):
         while response.get('IsTruncated'):
             if self._stopped:
                 return
-            client_config['ContinuationToken'] = response['NextContinuationToken']
+            client_config['ContinuationToken'] = response[
+                'NextContinuationToken'
+            ]
             response = client.list_objects_v2(**client_config)
             for content in response.get('CommonPrefixes', []):
                 if self._stopped:
@@ -514,7 +516,6 @@ class SearchResultsModel(QAbstractTableModel):
         super().__init__(parent)
         self.items = list(items) if items is not None else []
         self.current_row = 0
-        self._stopped = False
 
     def columnCount(self, parent=QModelIndex()):
         return 4
@@ -532,7 +533,7 @@ class SearchResultsModel(QAbstractTableModel):
     def fetchMore(self, parent=QModelIndex()):
         if parent.isValid():
             return
-        items_to_fetch = min(100, len(self.items) - self.current_row)
+        items_to_fetch = min(256, len(self.items) - self.current_row)
         if items_to_fetch <= 0:
             return
         self.beginInsertRows(
@@ -545,6 +546,8 @@ class SearchResultsModel(QAbstractTableModel):
 
     def data(self, index, role=Qt.DisplayRole):
         if not index.isValid():
+            return
+        if 0 > index.row() > self.rowCount():
             return
         if role == Qt.DisplayRole:
             return self.items[index.row()][index.column()]
@@ -593,13 +596,14 @@ class SearchResultsModel(QAbstractTableModel):
 
     def setData(self, index, value, role=Qt.EditRole):
         try:
-            if index.column() == 0 and role == Qt.CheckStateRole:
-                if value == Qt.Checked.value or value == Qt.Checked:
-                    value = Qt.Checked
+            if index.column() == 0:
+                if role == Qt.CheckStateRole:
+                    if value == Qt.Checked.value or value == Qt.Checked:
+                        value = Qt.Checked
+                    else:
+                        value = Qt.Unchecked
                 else:
-                    value = Qt.Unchecked
-            else:
-                return False
+                    return False
             self.items[index.row()][index.column()] = value
         except Exception as e:
             cls_name = self.__class__.__name__
