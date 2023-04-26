@@ -547,7 +547,7 @@ class SearchResultsModel(QAbstractTableModel):
     def data(self, index, role=Qt.DisplayRole):
         if not index.isValid():
             return
-        if 0 > index.row() > self.rowCount():
+        if 0 > index.row() or index.row() > self.rowCount():
             return
         if role == Qt.DisplayRole:
             return self.items[index.row()][index.column()]
