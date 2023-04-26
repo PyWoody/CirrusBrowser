@@ -210,9 +210,9 @@ class SearchRunnable(BaseRunnable):
             yield from files
 
     def top_level_search(self, item):
-        for item in item.listdir():
-            if not item.is_dir:
-                yield item
+        for result in item.listdir():
+            if not result.is_dir:
+                yield result
 
     def stop(self):
         self.stopped = True
