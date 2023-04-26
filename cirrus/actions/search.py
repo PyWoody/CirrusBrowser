@@ -106,7 +106,6 @@ class SearchRunnable(BaseRunnable):
         self.search_results_window.aborted.connect(self.stop)
         self.search_results_window.closed.connect(self.closed)
         self.search_results_window.show()
-        self._id = str(uuid.uuid4())
         self.stopped = False
 
     @Slot()
@@ -178,12 +177,13 @@ class SearchRunnable(BaseRunnable):
         else:
             search_func = self.top_level_search
         results = []
-        location_selections = {
-            i.text() for i in self.dialog.location_selections if i.isChecked()
-        }
         if len(self.dialog.folders) == 1:
-            # This is an EOD hack
-            location_selections.add(self.dialog.folders[0].root)
+            location_selections = {self.dialog.folders[0].root}
+        else:
+            location_selections = {
+                i.text() for i in self.dialog.location_selections
+                if i.isChecked()
+            }
         for folder in self.dialog.folders:
             if folder.root not in location_selections:
                 continue
@@ -206,12 +206,13 @@ class SearchRunnable(BaseRunnable):
         self.signals.finished.emit('Completed')
 
     def recursive_search(self, item):
-        for root, dirs, files in item.walk():
-            yield from dirs
+        for _, __, files in item.walk():
             yield from files
 
     def top_level_search(self, item):
-        yield from item.listdir()
+        for item in item.listdir():
+            if not item.is_dir:
+                yield item
 
     def stop(self):
         self.stopped = True

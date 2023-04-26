@@ -176,7 +176,6 @@ class SearchItemsDialog(QDialog):
         self.folders = []
         if folders:
             for folder in folders:
-                print(folder.root)
                 if folder.root not in __processed:
                     self.folders.append(folder)
                     __processed.add(folder.root)

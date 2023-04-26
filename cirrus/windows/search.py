@@ -221,7 +221,6 @@ class SearchResultsWindow(QWidget):
 
     @Slot()
     def select_all(self):
-        self.enable_action_btns()
         self.select_all_btn.setEnabled(False)
         index = self.view.model().index(0, 0)
         parent = QModelIndex()
@@ -258,6 +257,7 @@ class SearchResultsWindow(QWidget):
                     )
                 )
                 group = list(itertools.islice(g_checkboxes, 0, batch_size))
+        QTimer.singleShot(0, self.enable_action_btns)
 
     @Slot(bool)
     def download(self, checked, *, parent=QModelIndex()):
