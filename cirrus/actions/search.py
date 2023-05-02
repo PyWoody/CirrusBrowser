@@ -4,12 +4,13 @@ import uuid
 from functools import partial
 
 from .base import BaseAction, BaseRunnable
-from cirrus import database, dialogs, items, settings, utils
+from cirrus import database, dialogs, exceptions, items, settings, utils
 from cirrus.actions.signals import ActionSignals
 from cirrus.windows.search import SearchResultsWindow
 
 from PySide6.QtCore import Slot
 from PySide6.QtGui import QIcon
+from PySide6.QtSql import QSqlDatabase
 
 
 class SearchAllAction(BaseAction):
@@ -66,19 +67,22 @@ class SearchByPanelAction(BaseAction):
 
 class TransferFilterAction(BaseAction):
 
-    def __init__(self, parent, folders=None):
+    def __init__(self, parent, *, destinations, folders=None):
         super().__init__(parent)
         self.dialog = None
         self.parent = parent
-        self.folders = folders
-        self.setText('Filter (Advanced)')
+        self.destinations = list(destinations)
+        self.folders = None if folders is None else list(folders)
+        self.setText('Copy (Filter)')
         self.setStatusTip(
             'Advanced controls for filtering with additional options'
         )
 
     def show_dialog(self):
-        self.dialog = dialogs.SearchItemsDialog(
-            parent=self.parent, folders=self.folders
+        self.dialog = dialogs.TransferItemsDialog(
+            parent=self.parent,
+            folders=self.folders,
+            destinations=self.destinations,
         )
         self.dialog.accepted.connect(self.accepted.emit)
         self.dialog.setModal(True)
@@ -112,61 +116,61 @@ class SearchRunnable(BaseRunnable):
     def run(self):
         self.signals.started.emit()
         filters = []
-        if name := self.dialog.name.text():
+        if name := self.dialog.filters.name.text():
             name = os.path.splitext(name)[0]
             filters.append(
                 partial(
-                    self.dialog.name_option.itemData(
-                        self.dialog.name_option.currentIndex()
+                    self.dialog.filters.name_option.itemData(
+                        self.dialog.filters.name_option.currentIndex()
                     ),
                     name
                 )
             )
-        if file_type := self.dialog.file_types.text():
+        if file_type := self.dialog.filters.file_types.text():
             file_type = '.' + file_type.lstrip('.')
             filters.append(
                 partial(
-                    self.dialog.file_types_option.itemData(
-                        self.dialog.file_types_option.currentIndex()
+                    self.dialog.filters.file_types_option.itemData(
+                        self.dialog.filters.file_types_option.currentIndex()
                     ),
                     file_type
                 )
             )
-        if ctime := self.dialog.ctime.text():
+        if ctime := self.dialog.filters.ctime.text():
             if str(ctime) != '0':
-                value_text = self.dialog.ctime_option_increment.currentText()
+                value_text = self.dialog.filters.ctime_option_increment.currentText()
                 compare_date = utils.date.subtract_period(value_text, ctime)
                 seconds = utils.date.period_to_seconds(value_text, ctime)
                 filters.append(
                     partial(
-                        self.dialog.ctime_option.itemData(
-                            self.dialog.ctime_option.currentIndex()
+                        self.dialog.filters.ctime_option.itemData(
+                            self.dialog.filters.ctime_option.currentIndex()
                         ),
                         compare_date,
                         seconds
                     )
                 )
-        if mtime := self.dialog.mtime.text():
+        if mtime := self.dialog.filters.mtime.text():
             if str(mtime) != '0':
-                value_text = self.dialog.mtime_option_increment.currentText()
+                value_text = self.dialog.filters.mtime_option_increment.currentText()
                 compare_date = utils.date.subtract_period(value_text, mtime)
                 seconds = utils.date.period_to_seconds(value_text, mtime)
                 filters.append(
                     partial(
-                        self.dialog.mtime_option.itemData(
-                            self.dialog.mtime_option.currentIndex()
+                        self.dialog.filters.mtime_option.itemData(
+                            self.dialog.filters.mtime_option.currentIndex()
                         ),
                         compare_date,
                         seconds
                     )
                 )
-        if (size := self.dialog.size.text()) != '0':
-            value = self.dialog.size_option_increment.currentText()
+        if (size := self.dialog.filters.size.text()) != '0':
+            value = self.dialog.filters.size_option_increment.currentText()
             value = utils.files.human_to_bytes(f'{size}{value}')
             filters.append(
                 partial(
-                    self.dialog.size_option.itemData(
-                        self.dialog.size_option.currentIndex()
+                    self.dialog.filters.size_option.itemData(
+                        self.dialog.filters.size_option.currentIndex()
                     ),
                     value
                 )
@@ -184,9 +188,10 @@ class SearchRunnable(BaseRunnable):
                 i.text() for i in self.dialog.location_selections
                 if i.isChecked()
             }
-        for folder in self.dialog.folders:
-            if folder.root not in location_selections:
-                continue
+        search_folders = (
+            i for i in self.dialog.folders if i.root in location_selections
+        )
+        for folder in search_folders:
             if self.stopped:
                 self.signals.finished.emit('Stopped')
                 self.signals.aborted.emit()
@@ -232,68 +237,76 @@ class TransferFilterRunnable(BaseRunnable):
         self.setAutoDelete(False)
         self.parent = parent
         self.dialog = dialog
+        self.process = process
         self.signals = ActionSignals()
         self._id = str(uuid.uuid4())
 
     @Slot()
     def run(self):
+        print(self.dialog.folders)
+        print(self.dialog.destinations)
+        print(self.parent.type, self.parent.user); return
         self.signals.started.emit()
+        con = QSqlDatabase.addDatabase('QSQLITE', self._id)
+        con.setDatabaseName(settings.DATABASE)
+        if not con.open():
+            raise exceptions.DatabaseClosedException
         filters = []
-        if name := self.dialog.name.text():
+        if name := self.dialog.filters.name.text():
             name = os.path.splitext(name)[0]
             filters.append(
                 partial(
-                    self.dialog.name_option.itemData(
-                        self.dialog.name_option.currentIndex()
+                    self.dialog.filters.name_option.itemData(
+                        self.dialog.filters.name_option.currentIndex()
                     ),
                     name
                 )
             )
-        if file_type := self.dialog.file_types.text():
+        if file_type := self.dialog.filters.file_types.text():
             file_type = '.' + file_type.lstrip('.')
             filters.append(
                 partial(
-                    self.dialog.file_types_option.itemData(
-                        self.dialog.file_types_option.currentIndex()
+                    self.dialog.filters.file_types_option.itemData(
+                        self.dialog.filters.file_types_option.currentIndex()
                     ),
                     file_type
                 )
             )
-        if ctime := self.dialog.ctime.text():
+        if ctime := self.dialog.filters.ctime.text():
             if str(ctime) != '0':
-                value_text = self.dialog.ctime_option_increment.currentText()
+                value_text = self.dialog.filters.ctime_option_increment.currentText()
                 compare_date = utils.date.subtract_period(value_text, ctime)
                 seconds = utils.date.period_to_seconds(value_text, ctime)
                 filters.append(
                     partial(
-                        self.dialog.ctime_option.itemData(
-                            self.dialog.ctime_option.currentIndex()
+                        self.dialog.filters.ctime_option.itemData(
+                            self.dialog.filters.ctime_option.currentIndex()
                         ),
                         compare_date,
                         seconds
                     )
                 )
-        if mtime := self.dialog.mtime.text():
+        if mtime := self.dialog.filters.mtime.text():
             if str(mtime) != '0':
-                value_text = self.dialog.mtime_option_increment.currentText()
+                value_text = self.dialog.filters.mtime_option_increment.currentText()
                 compare_date = utils.date.subtract_period(value_text, mtime)
                 seconds = utils.date.period_to_seconds(value_text, mtime)
                 filters.append(
                     partial(
-                        self.dialog.mtime_option.itemData(
-                            self.dialog.mtime_option.currentIndex()
+                        self.dialog.filters.mtime_option.itemData(
+                            self.dialog.filters.mtime_option.currentIndex()
                         ),
                         compare_date,
                         seconds
                     )
                 )
-        if (size := self.dialog.size.text()) != '0':
-            value_text = self.dialog.size_option_increment.currentText()
+        if (size := self.dialog.filters.size.text()) != '0':
+            value_text = self.dialog.filters.size_option_increment.currentText()
             value = utils.files.human_to_bytes(f'{size}{value_text}')
             filters.append(
                 partial(
-                    self.dialog.size_option.itemData(
-                        self.dialog.size_option.currentIndex()
+                    self.dialog.filters.size_option.itemData(
+                        self.dialog.filters.size_option.currentIndex()
                     ),
                     value
                 )
@@ -302,17 +315,31 @@ class TransferFilterRunnable(BaseRunnable):
             search_func = self.recursive_search
         else:
             search_func = self.top_level_search
+        if len(self.dialog.folders) == 1:
+            location_selections = {self.dialog.folders[0].root}
+        else:
+            location_selections = {
+                i.text() for i in self.dialog.location_selections
+                if i.isChecked()
+            }
+        search_folders = (
+            i for i in self.dialog.folders if i.root in location_selections
+        )
         batch_size = 1
         output = []
-        for folder in self.dialog.folders:
+        for folder in search_folders:
+            if self.stopped:
+                # TODO: Push to the DB anything pending
+                self.signals.finished.emit('Stopped')
+                self.signals.aborted.emit()
+                return
             for result in search_func(folder):
-                if result.is_dir:
-                    continue
-                # TODO: Make this an `any` generator
-                for _filter in filters:
-                    if not _filter.func(result, *_filter.args):
-                        break
-                else:
+                if self.stopped:
+                    # TODO: Push to the DB anything pending
+                    self.signals.finished.emit('Stopped')
+                    self.signals.aborted.emit()
+                    return
+                if all(f(result) for f in filters):
                     destination = os.path.abspath(
                         os.path.join(
                             self.destination.root,
@@ -351,17 +378,22 @@ class TransferFilterRunnable(BaseRunnable):
                     output.append(serialized_item)
                     batch_size += 1
         self.signals.finished.emit(f'Testing - {self.parent.root} - FINISHED')
+        con.close()
 
     def recursive_search(self, item):
-        for root, dirs, files in item.walk():
-            yield from dirs
+        for _, __, files in item.walk():
             yield from files
 
     def top_level_search(self, item):
-        yield from item.listdir()
+        for result in item.listdir():
+            if not result.is_dir:
+                yield result
 
     @Slot()
     def closed(self):
         # Probably redundant but good practice to ensure GC
         self.parent = None
         self = None
+
+    def __del__(self, *args, **kwargs):
+        QSqlDatabase.removeDatabase(self._id)

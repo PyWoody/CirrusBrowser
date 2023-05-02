@@ -24,7 +24,12 @@ def file_listing_menu(menu, parent, files, folders, panels):
     if (files or folders) and destinations:
         menu.addSection('Transfers')
         # TODO: Make this a transfer search
-        menu.addAction(actions.search.TransferFilterAction(parent, folders))
+        # TODO: Make this smart enough for a single file selection
+        menu.addAction(
+            actions.search.TransferFilterAction(
+                parent, folders=folders, destinations=destinations
+            )
+        )
         # Copy
         sub_menu = menu.addMenu('Copy')
         if files and folders:

@@ -240,7 +240,7 @@ class CreateDirectoryRunnable(BaseRunnable):
 
     @Slot()
     def run(self):
-        self.signals.started.emit(f'Testing - {self.parent.root} - START')
+        self.signals.started.emit()
         item = items.types.get(self.parent.type.lower())
         if not item:
             raise NotImplementedError
@@ -250,7 +250,7 @@ class CreateDirectoryRunnable(BaseRunnable):
                 user = items.new_user(self.parent.user, path)
                 item(user, is_dir=True).makedirs()
         self.signals.finished.emit(f'Testing - {self.parent.root} - FINISHED')
-        self.signals.execute_callback.emit(self.parent().refresh)
+        self.signals.callback.emit(self.parent().refresh)
 
 
 class FolderRunnable(BaseRunnable):
@@ -265,9 +265,7 @@ class FolderRunnable(BaseRunnable):
         self._id = str(uuid.uuid4())
 
     def run(self):
-        self.signals.started.emit(
-            f'Testing - {self.parent.root} - FOLDERS - STARTED'
-        )
+        self.signals.started.emit()
         con = QSqlDatabase.addDatabase('QSQLITE', self._id)
         con.setDatabaseName(settings.DATABASE)
         if not con.open():
@@ -367,9 +365,7 @@ class FoldersRunnable(BaseRunnable):
     def run(self):
         # If Copy, a caught start will start the queue processing
         # May have to re-emit start to prevent deadlocks
-        self.signals.started.emit(
-            f'Testing - {self.parent.root} - FOLDERS - STARTED'
-        )
+        self.signals.started.emit()
         con = QSqlDatabase.addDatabase('QSQLITE', self._id)
         con.setDatabaseName(settings.DATABASE)
         if not con.open():
@@ -468,7 +464,7 @@ class MixedItemsRunnable(BaseRunnable):
     def run(self):
         # If Copy, a caught start will start the queue processing
         # May have to re-emit start to prevent deadlocks
-        self.signals.started.emit(f'Testing - {self.parent.root} - START')
+        self.signals.started.emit()
         if self.process:
             self.signals.process_queue.emit()
         con = QSqlDatabase.addDatabase('QSQLITE', self._id)
@@ -562,7 +558,7 @@ class FilesRunnable(BaseRunnable):
 
     @Slot()
     def run(self):
-        self.signals.started.emit(f'Testing - {self.parent.root} - START')
+        self.signals.started.emit()
         if self.process:
             self.signals.process_queue.emit()
         con = QSqlDatabase.addDatabase('QSQLITE', self._id)
@@ -595,7 +591,7 @@ class RemoveItemsRunnable(BaseRunnable):
 
     @Slot()
     def run(self):
-        self.signals.started.emit(f'Testing - {self.parent.root} - FINISHED')
+        self.signals.started.emit()
         func = self.parent.model().remove_rows
         deleted_items = []
         for index, item in enumerate(self.items, start=1):
