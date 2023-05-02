@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QGridLayout,
+    QHBoxLayout,
     QLabel,
     QLineEdit,
     QRadioButton,
@@ -309,6 +310,7 @@ class TransferItemsDialog(QDialog):
         self.destinations.sort(key=lambda x: x.root)
         self.setWindowTitle('Copy')
         self.recursive = False
+        button_bar_layout = QHBoxLayout()
         self.button_box = QDialogButtonBox()
         self.search_btn = self.button_box.addButton(
             '&Copy', QDialogButtonBox.ButtonRole.AcceptRole
@@ -324,32 +326,33 @@ class TransferItemsDialog(QDialog):
         self.button_box.rejected.connect(self.reject)
 
         # Process Option Group
-        transfer_options_layout = QGridLayout()
-        transfer_options_layout.setColumnMinimumWidth(0, 10)
-        transfer_options_layout.setColumnStretch(2, 1)
-        transfer_options_label = QLabel()
-        transfer_options_label.setTextFormat(Qt.RichText)
-        transfer_options_label.setText('<i>Select how to process matches</i>')
-        transfer_options_layout.addWidget(
-            transfer_options_label, 0, 0, 1, 2
-        )
         radio_group = QButtonGroup(self)
         self.add_to_queue_radio = QRadioButton('Add Matches to Queue')
         self.add_to_queue_radio.setChecked(True)
-        self.add_and_start_radio = QRadioButton(
-            'Process Queue at First Match'
-        )
+        self.add_and_start_radio = QRadioButton('Process Queue')
         radio_group.addButton(self.add_to_queue_radio)
         radio_group.addButton(self.add_and_start_radio)
-        transfer_options_layout.addWidget(self.add_to_queue_radio, 1, 1)
-        transfer_options_layout.addWidget(self.add_and_start_radio, 2, 1)
-        transfer_options_layout.setRowStretch(3, 1)
+        button_bar_layout.addWidget(self.add_to_queue_radio)
+        button_bar_layout.addWidget(self.add_and_start_radio)
+        button_bar_layout.addStretch(1)
+        button_bar_layout.addWidget(self.button_box)
 
         # Filters
         self.filters = FileFilters(window=self.parent)
         filters_form = self.filters.setup_form()
 
+        # This will be a pop-up
+        # Overwrite (Plain)
+        ## Source is Newer
+        ## Different Size
+        ## Size or Source
+        ## Hash (algo)
+        # Rename (make it simple, stupid, i.e., (n+1).ext)
+        # Skip
+
         self.layout = QVBoxLayout()
+        selection_grid = QGridLayout()
+        selection_grid.setColumnStretch(1, 1)
         self.location_selections = []
         # From sources
         if len(self.folders) > 1:
@@ -357,9 +360,9 @@ class TransferItemsDialog(QDialog):
             _label = QLabel()
             _label.setTextFormat(Qt.RichText)
             _label.setText('<b>From:</b>')
-            _label.setAlignment(Qt.AlignTop)
+            _label.setAlignment(Qt.AlignRight)
             _label.setIndent(5)
-            flow_layout.addWidget(_label)
+            selection_grid.addWidget(_label, 0, 0)
             for folder in self.folders:
                 label = QToolButton()
                 label.setText(folder.root)
@@ -368,11 +371,16 @@ class TransferItemsDialog(QDialog):
                 label.toggled.connect(partial(self.location_selected, label))
                 self.location_selections.append(label)
                 flow_layout.addWidget(label)
-            self.layout.addLayout(flow_layout)
+            selection_grid.addLayout(flow_layout, 0, 1)
         else:
-            self.layout.addWidget(QLabel(
-                f'<b>From</b>: {self.folders[0].root}')
-            )
+            f_label = QLabel()
+            f_label.setTextFormat(Qt.RichText)
+            f_label.setAlignment(Qt.AlignRight)
+            f_label.setText('<b>From:</b>')
+            r_label = QLabel()
+            r_label.setText(self.folders[0].root)
+            selection_grid.addWidget(f_label, 0, 0)
+            selection_grid.addWidget(r_label, 0, 1)
         # Destination outputs
         self.destination_selections = []
         if len(self.destinations) > 1:
@@ -380,9 +388,9 @@ class TransferItemsDialog(QDialog):
             _label = QLabel()
             _label.setTextFormat(Qt.RichText)
             _label.setText('<b>Destinations:</b>')
-            _label.setAlignment(Qt.AlignTop)
+            _label.setAlignment(Qt.AlignRight)
             _label.setIndent(5)
-            flow_layout.addWidget(_label)
+            selection_grid.addWidget(_label, 1, 0)
             for dst in self.destinations:
                 label = QToolButton()
                 label.setText(dst.root)
@@ -391,14 +399,21 @@ class TransferItemsDialog(QDialog):
                 label.toggled.connect(partial(self.location_selected, label))
                 self.destination_selections.append(label)
                 flow_layout.addWidget(label)
-            self.layout.addLayout(flow_layout)
+            selection_grid.addLayout(flow_layout, 1, 1)
         else:
-            self.layout.addWidget(
-                QLabel(f'<b>Destination:</b> {self.destinations[0].root}')
-            )
-        self.layout.addLayout(transfer_options_layout)
+            f_label = QLabel()
+            f_label.setTextFormat(Qt.RichText)
+            f_label.setAlignment(Qt.AlignRight)
+            f_label.setText('<b>Destination:</b>')
+            r_label = QLabel()
+            r_label.setText(self.destinations[0].root)
+            selection_grid.addWidget(f_label, 1, 0)
+            selection_grid.addWidget(r_label, 1, 1)
+        self.layout.addLayout(selection_grid)
+        # self.layout.addLayout(transfer_options_layout)
         self.layout.addLayout(filters_form)
-        self.layout.addWidget(self.button_box)
+        # self.layout.addWidget(self.button_box)
+        self.layout.addLayout(button_bar_layout)
         self.setLayout(self.layout)
         self.filters.after_setup_styling()
 

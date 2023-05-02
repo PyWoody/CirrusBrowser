@@ -23,10 +23,8 @@ def file_listing_menu(menu, parent, files, folders, panels):
         )
     if (files or folders) and destinations:
         menu.addSection('Transfers')
-        # TODO: Make this a transfer search
-        # TODO: Make this smart enough for a single file selection
         menu.addAction(
-            actions.search.TransferFilterAction(
+            actions.transfers.TransferFilterAction(
                 parent, folders=folders, destinations=destinations
             )
         )
