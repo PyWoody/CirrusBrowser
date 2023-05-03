@@ -33,11 +33,23 @@ class TransfersTableModel(QSqlTableModel):
         self.align_left_cols = {1, 2}
         # TODO: connect to any row add slots to reset this
         self.transfer_items = dict()
-        self.total_rows = 0
+        self.current_row = 0
+        self.max_num_rows = 0
 
     def select(self, *args, **kwargs):
+        self.beginResetModel()
+        self.current_row = 0
+        self.max_num_rows = 0
         self.last_invalidate = utils.date.now()
-        return super().select()
+        super().select()
+        query = self.database().exec(
+            f'SELECT COUNT(*) FROM transfers WHERE {self.filter()}'
+        )
+        if query.next():
+            self.max_num_rows = int(query.value(0))
+        else:
+            self.max_num_rows = 0
+        self.endResetModel()
 
     def delta_select(self, *, delta=2):
         if (utils.date.now() - self.last_invalidate).seconds >= delta:
@@ -87,23 +99,28 @@ class TransfersTableModel(QSqlTableModel):
             return Qt.AlignRight
         return super().data(index, role)
 
+    def rowCount(self, parent=QModelIndex()):
+        if parent.isValid():
+            return 0
+        return self.max_num_rows
+
     def canFetchMore(self, parent=QModelIndex()):
         if parent.isValid():
             return False
-        can = super().canFetchMore(parent)
-        if not can:
-            # TODO: Check this. Smaller numbers cause infinite recursion
-            if self.rowCount(parent) > 100:
-                self.select()
-                can = super().canFetchMore(parent)
-        return can
+        return self.current_row < self.max_num_rows
 
     def fetchMore(self, parent=QModelIndex()):
         if parent.isValid():
             return
-        current_rows = self.rowCount(parent)
-        super().fetchMore(parent)
-        self.beginInsertRows(parent, current_rows, self.rowCount(parent) - 1)
+        items_to_fetch = min(256, self.max_num_rows - self.current_row)
+        if items_to_fetch <= 0:
+            return
+        self.beginInsertRows(
+            parent,
+            self.current_row,
+            self.current_row + items_to_fetch - 1,
+        )
+        self.current_row += items_to_fetch
         self.endInsertRows()
 
     def headerData(self, section, orientation, role=Qt.DisplayRole):

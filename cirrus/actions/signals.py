@@ -5,12 +5,13 @@ from PySide6.QtCore import QObject, Signal
 
 class ActionSignals(QObject):
 
-    accepted = Signal()
     aborted = Signal()
+    accepted = Signal()
+    callback = Signal(partial)
+    ss_callback = Signal(partial)
     error = Signal(str)
     finished = Signal(str)
     process_queue = Signal()
-    callback = Signal(partial)
     select = Signal()
     started = Signal()
     update = Signal(str)

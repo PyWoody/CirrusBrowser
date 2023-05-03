@@ -47,9 +47,9 @@ def execute_callback(func):
 
 
 @Slot(partial)
-def execute_callback_ss(func):
+def execute_ss_callback(func):
     try:
-        return QTimer.singleShot(1, func)
+        QTimer.singleShot(0, func)
     except Exception as e:
         logging.warn(f'Failed to execute {func!r} with error {e}')
 

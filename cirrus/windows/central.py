@@ -132,20 +132,24 @@ class CentralWidgetWindow(QWidget):  # Terrible name
         menu.popup(pos)
 
     def menu_item_selected(self, action):
+        model = self.transfers_window.tabs.currentWidget().model()
         if action.show_dialog():
-            model = self.transfers_window.tabs.currentWidget().model()
             action.accepted.connect(
                 partial(
                     self.menu_item_selected_cb, action, model
                 )
             )
+        else:
+            self.menu_item_selected_cb(action, model)
 
     def menu_item_selected_cb(self, action, model=None):
         runnable = action.runnable()
         runnable.signals.aborted.connect(partial(print, 'Aborted!'))
+        runnable.signals.update.connect(print)
         runnable.signals.process_queue.connect(self.start_queue_tmp)
         if model is not None:
-            runnable.signals.select.connect(model.delta_select)
+            runnable.signals.select.connect(model.select)
+        runnable.signals.ss_callback.connect(utils.execute_ss_callback)
         runnable.signals.callback.connect(utils.execute_callback)
         self.threadpool.start(runnable)
 

@@ -21,6 +21,8 @@ from PySide6.QtCore import (
 from PySide6.QtWidgets import QWidget
 
 # TODO: This was mean to be tmp. Requires total rewrite
+#       Need to re-write using signals/slots for correct updating in main db
+#       Models can't track updates via threads and become stale
 # TODO: transfer_priroity_change
 # NOTE: `add` should really be `insert`
 
@@ -568,7 +570,12 @@ def add_transfers(*, items, destination, s_type, d_type, con_name='con'):
                 # err_msg = query.lastError().databaseText()
                 critical_msg('add_transfers', err_msg)
                 return False
-        con.commit()
+        if not con.commit():
+            con.rollback()
+            err_msg = query.lastError().driverText()
+            # err_msg = query.lastError().databaseText()
+            critical_msg('add_transfers', err_msg)
+            return False
         return True
     except Exception as e:
         critical_msg('add_transfers E', str(e))

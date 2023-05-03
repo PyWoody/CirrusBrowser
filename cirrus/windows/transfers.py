@@ -1,4 +1,3 @@
-
 from functools import partial
 
 from cirrus import exceptions, utils, menus
@@ -13,7 +12,7 @@ from cirrus.views.transfers import (
 )
 
 from PySide6.QtCore import Slot, Qt, QThreadPool, QTimer
-from PySide6.QtSql import QSqlDatabase
+from PySide6.QtSql import QSqlDatabase, QSqlTableModel
 from PySide6.QtWidgets import QMenu, QTabWidget, QVBoxLayout, QWidget
 
 
@@ -79,16 +78,16 @@ class TransfersWindow(QWidget):
     def transfers_context_menu(self, parent, pos, indexes):
         menu = QMenu(parent)
         menus.transfer_listing_menu(menu, parent, indexes)
-        menu.triggered.connect(self.menu_item_selected)
+        menu.triggered.connect(self.transfer_menu_item_selected)
         menu.popup(pos)
 
-    def menu_item_selected(self, action):
+    def transfer_menu_item_selected(self, action):
         widget = action.parent
         runnable = action.runnable()
-        # runnable.signals.started.connect(print)
         runnable.signals.select.connect(widget.model().select)
         runnable.signals.error.connect(print)
         runnable.signals.update.connect(self.database_queue.remove_item)
+        runnable.signals.callback.connect(utils.execute_callback)
         runnable.signals.finished.connect(print)
         self.threadpool.start(runnable)
 

@@ -1,15 +1,13 @@
 import os
-import uuid
 
 from functools import partial
 
 from .base import BaseAction, BaseRunnable
-from cirrus import database, dialogs, exceptions, items, settings, utils
+from cirrus import database, dialogs, items, settings, utils
 from cirrus.actions.signals import ActionSignals
 
 from PySide6.QtCore import Slot
 from PySide6.QtGui import QIcon
-from PySide6.QtSql import QSqlDatabase
 
 
 class CreateDirectoryAction(BaseAction):
@@ -262,14 +260,9 @@ class FolderRunnable(BaseRunnable):
         self.source = source
         self.signals = ActionSignals()
         self.destination = destination
-        self._id = str(uuid.uuid4())
 
     def run(self):
         self.signals.started.emit()
-        con = QSqlDatabase.addDatabase('QSQLITE', self._id)
-        con.setDatabaseName(settings.DATABASE)
-        if not con.open():
-            raise exceptions.DatabaseClosedException
         parent_type = self.parent.type
         destination_type = self.destination.type
         processed = 0
@@ -286,18 +279,17 @@ class FolderRunnable(BaseRunnable):
             output = []
             for f_item in files:
                 if batch_size % 100 == 0:
-                    if database.add_transfers(
+                    cb = partial(
+                        database.add_transfers,
                         items=output,
                         destination=destination,
                         s_type=parent_type,
                         d_type=destination_type,
-                        con_name=self._id
-                    ):
-                        self.signals.select.emit()
-                        if self.process:
-                            self.signals.process_queue.emit()
-                    else:
-                        self.signals.error.emit('ERROR')
+                    )
+                    self.signals.callback.emit(cb)
+                    self.signals.select.emit()
+                    if self.process:
+                        self.signals.process_queue.emit()
                     output = []
                 # TODO: Is f_item not a fully fledged item?
                 #       Why does it need to be created?
@@ -322,18 +314,17 @@ class FolderRunnable(BaseRunnable):
                 output.append(f_item)
                 batch_size += 1
             if output:
-                if database.add_transfers(
+                cb = partial(
+                    database.add_transfers,
                     items=output,
                     destination=destination,
                     s_type=parent_type,
                     d_type=destination_type,
-                    con_name=self._id
-                ):
-                    self.signals.select.emit()
-                    if self.process:
-                        self.signals.process_queue.emit()
-                else:
-                    self.signals.error.emit('ERROR')
+                )
+                self.signals.callback.emit(cb)
+                self.signals.select.emit()
+                if self.process:
+                    self.signals.process_queue.emit()
             processed += batch_size - 1
         if processed:
             self.signals.update.emit(
@@ -345,10 +336,6 @@ class FolderRunnable(BaseRunnable):
         self.signals.finished.emit(
             f'Testing - {self.parent.root} - FOLDERS - FINISHED'
         )
-        con.close()
-
-    def __del__(self, *args, **kwargs):
-        QSqlDatabase.removeDatabase(self._id)
 
 
 class FoldersRunnable(BaseRunnable):
@@ -360,16 +347,11 @@ class FoldersRunnable(BaseRunnable):
         self.parent = parent
         self.folders = folders
         self.destination = destination
-        self._id = str(uuid.uuid4())
 
     def run(self):
         # If Copy, a caught start will start the queue processing
         # May have to re-emit start to prevent deadlocks
         self.signals.started.emit()
-        con = QSqlDatabase.addDatabase('QSQLITE', self._id)
-        con.setDatabaseName(settings.DATABASE)
-        if not con.open():
-            raise exceptions.DatabaseClosedException
         parent_type = self.parent.type
         destination_type = self.destination.type
         for root_item in self.folders:
@@ -386,18 +368,17 @@ class FoldersRunnable(BaseRunnable):
                 output = []
                 for f_item in files:
                     if batch_size % 100 == 0:
-                        if database.add_transfers(
+                        cb = partial(
+                            database.add_transfers,
                             items=output,
                             destination=destination,
                             s_type=parent_type,
                             d_type=destination_type,
-                            con_name=self._id
-                        ):
-                            self.signals.select.emit()
-                            if self.process:
-                                self.signals.process_queue.emit()
-                        else:
-                            self.signals.error.emit('ERROR')
+                        )
+                        self.signals.callback.emit(cb)
+                        self.signals.select.emit()
+                        if self.process:
+                            self.signals.process_queue.emit()
                         output = []
                     if parent_type == 'local':
                         fname = os.path.join(
@@ -417,18 +398,17 @@ class FoldersRunnable(BaseRunnable):
                     output.append(serialized_item)
                     batch_size += 1
                 if output:
-                    if database.add_transfers(
+                    cb = partial(
+                        database.add_transfers,
                         items=output,
                         destination=destination,
                         s_type=parent_type,
                         d_type=destination_type,
-                        con_name=self._id
-                    ):
-                        self.signals.select.emit()
-                        if self.process:
-                            self.signals.process_queue.emit()
-                    else:
-                        self.signals.error.emit('ERROR')
+                    )
+                    self.signals.callback.emit(cb)
+                    self.signals.select.emit()
+                    if self.process:
+                        self.signals.process_queue.emit()
                 processed += batch_size - 1
             if processed:
                 self.signals.update.emit(f'Added {processed:,} to queue.')
@@ -442,10 +422,6 @@ class FoldersRunnable(BaseRunnable):
         self.signals.finished.emit(
             f'Testing - {self.parent.root} - FOLDERS - FINISHED'
         )
-        con.close()
-
-    def __del__(self, *args, **kwargs):
-        QSqlDatabase.removeDatabase(self._id)
 
 
 class MixedItemsRunnable(BaseRunnable):
@@ -458,7 +434,6 @@ class MixedItemsRunnable(BaseRunnable):
         self.files = files
         self.folders = folders
         self.destination = destination
-        self._id = str(uuid.uuid4())
 
     @Slot()
     def run(self):
@@ -467,67 +442,69 @@ class MixedItemsRunnable(BaseRunnable):
         self.signals.started.emit()
         if self.process:
             self.signals.process_queue.emit()
-        con = QSqlDatabase.addDatabase('QSQLITE', self._id)
-        con.setDatabaseName(settings.DATABASE)
-        if not con.open():
-            raise exceptions.DatabaseClosedException
-        database.add_transfers(
+        cb = partial(
+            database.add_transfers,
             items=self.files,
             destination=self.destination.root,
             s_type=self.parent.type,
             d_type=self.destination.type,
-            con_name=self._id
         )
+        self.signals.callback.emit(cb)
         self.signals.select.emit()
         if self.process:
             self.signals.process_queue.emit()
-        for root_item in self.folders:
+        # TODO: self.destination should be self.destinations
+        #       for multiple destinations at once
+        dst_item = items.types[self.destination.type.lower()]
+        for folder in self.folders:
             processed = 0
-            # for root, dirs, files in os.walk(root_item.root):
-            for root, dirs, files in self.parent.walk(root_item.root):
+            for root, dirs, files in folder.walk():
                 destination = os.path.abspath(
                     os.path.join(
-                        self.destination,
-                        os.path.relpath(root, start=self.parent.root)
+                        self.destination.root,
+                        os.path.basename(root.root),
+                        os.path.relpath(root.root, start=folder.root)
                     )
                 )
                 batch_size = 1
                 output = []
                 for f in files:
                     if batch_size % 100 == 0:
-                        if database.add_transfers(
+                        cb = partial(
+                            database.add_transfers,
                             items=output,
                             destination=destination,
                             s_type=self.parent.type,
                             d_type=self.destination.type,
-                            con_name=self._id
-                        ):
-                            self.signals.select.emit()
-                            if self.process:
-                                self.signals.process_queue.emit()
-                        else:
-                            self.signals.error.emit('ERROR')
-                        output = []
-                    fname = os.path.join(root, f)
-                    if os.path.isfile(fname):
-                        serialized_item = items.LocalItem(
-                            fname, size=os.stat(fname).st_size
                         )
-                        output.append(serialized_item)
-                        batch_size += 1
+                        self.signals.callback.emit(cb)
+                        self.signals.select.emit()
+                        if self.process:
+                            self.signals.process_queue.emit()
+                        output = []
+
+                    fname = os.path.abspath(
+                        os.path.join(
+                            destination,
+                            os.path.relpath(f.root, start=folder.root)
+                        )
+                    )
+                    user = items.new_user(self.destination.user, fname)
+                    serialized_item = dst_item.create(user, size=f.size)
+                    output.append(serialized_item)
+                    batch_size += 1
                 if output:
-                    if database.add_transfers(
+                    cb = partial(
+                        database.add_transfers,
                         items=output,
                         destination=destination,
                         s_type=self.parent.type,
                         d_type=self.destination.type,
-                        con_name=self._id
-                    ):
-                        self.signals.select.emit()
-                        if self.process:
-                            self.signals.process_queue.emit()
-                    else:
-                        self.signals.error.emit('ERROR')
+                    )
+                    self.signals.callback.emit(cb)
+                    self.signals.select.emit()
+                    if self.process:
+                        self.signals.process_queue.emit()
                 processed += batch_size - 1
             if processed:
                 self.signals.update.emit(f'Added {processed:,} to queue.')
@@ -539,10 +516,6 @@ class MixedItemsRunnable(BaseRunnable):
         if self.process:
             self.signals.process_queue.emit()
         self.signals.finished.emit(f'Testing - {self.parent.root} - FINISHED')
-        con.close()
-
-    def __del__(self, *args, **kwargs):
-        QSqlDatabase.removeDatabase(self._id)
 
 
 class FilesRunnable(BaseRunnable):
@@ -554,30 +527,22 @@ class FilesRunnable(BaseRunnable):
         self.parent = parent
         self.files = files
         self.destination = destination
-        self._id = str(uuid.uuid4())
 
     @Slot()
     def run(self):
         self.signals.started.emit()
         if self.process:
             self.signals.process_queue.emit()
-        con = QSqlDatabase.addDatabase('QSQLITE', self._id)
-        con.setDatabaseName(settings.DATABASE)
-        if not con.open():
-            raise exceptions.DatabaseClosedException
-        database.add_transfers(
+        cb = partial(
+            database.add_transfers,
             items=self.files,
             destination=self.destination.root,
             s_type=self.parent.type,
             d_type=self.destination.type,
-            con_name=self._id,
         )
+        self.signals.callback.emit(cb)
         self.signals.select.emit()
         self.signals.finished.emit(f'Testing - {self.parent.root} - FINISHED')
-        con.close()
-
-    def __del__(self, *args, **kwargs):
-        QSqlDatabase.removeDatabase(self._id)
 
 
 class RemoveItemsRunnable(BaseRunnable):
@@ -587,7 +552,6 @@ class RemoveItemsRunnable(BaseRunnable):
         self.items = items
         self.signals = ActionSignals()
         self.parent = parent
-        self._id = str(uuid.uuid4())
 
     @Slot()
     def run(self):

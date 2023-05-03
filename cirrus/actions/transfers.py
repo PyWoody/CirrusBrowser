@@ -31,27 +31,52 @@ class DropRowsRunnable(BaseRunnable):
         self.parent = parent
         self.signals = ActionSignals()
         self.indexes = indexes
-        self._id = str(uuid.uuid4())
 
     def run(self):
         # TODO: Items could still be in the database.hot_queue
-        con = QSqlDatabase.addDatabase('QSQLITE', self._id)
-        con.setDatabaseName(settings.DATABASE)
-        if not con.open():
-            raise exceptions.DatabaseClosedException
+        # TODO: removeRows can take a count. Do in groups, else removeRow(
+        prev_row = None
+        row_group = []
         for index in self.indexes:
-            root = index.siblingAtColumn(1).data()
-            if self.parent.model().removeRow(index.row()):
-                self.signals.update.emit(root)
+            if prev_row is None:
+                prev_row = index.row()
+                row_group.append(index)
+            elif (prev_row + 1) == index.row():
+                row_group.append(index)
             else:
-                self.signals.error.emit(f'Failed to drop row: {index.row()}')
+                # Pending rows
+                success = self.parent.model().removeRows(
+                    row_group[0].row(), len(row_group)
+                )
+                if success:
+                    for row in row_group:
+                        self.signals.update.emit(
+                            row.siblingAtColumn(1).data()
+                        )
+                else:
+                    self.signals.error.emit(
+                        f'Failed to drop rows {row_group[0].row()} to '
+                        f'{row_group[-1].row()}'
+                    )
+                # Current row
+                if self.parent.model().removeRow(index.row()):
+                    self.signals.update.emit(index.siblingAtColumn(1).data())
+                else:
+                    self.signals.error.emit(f'Failed to drop row: {index.row()}')
+                prev_row = None
+                row_group = []
+        if row_group:
+            success = self.parent.model().removeRows(
+                row_group[0].row(), len(row_group)
+            )
+            if success:
+                for row in row_group:
+                    self.signals.update.emit(
+                        row.siblingAtColumn(1).data()
+                    )
         self.signals.select.emit()
         self.signals.finished.emit('Finished drop')
         self.parent.model().submitAll()
-        con.close()
-
-    def __del__(self):
-        QSqlDatabase.removeDatabase(self._id)
 
 
 class TransferFilterAction(BaseAction):
@@ -91,18 +116,16 @@ class TransferFilterRunnable(BaseRunnable):
         self.dialog = dialog
         self.process = process
         self.signals = ActionSignals()
-        self._id = str(uuid.uuid4())
+        self.stopped = False
 
     @Slot()
     def run(self):
+        print(self.dialog.add_to_queue_radio.isChecked())
+        print(self.dialog.add_and_start_radio.isChecked())
         print(self.dialog.folders)
         print(self.dialog.destinations)
-        print(self.parent.type, self.parent.user); return
+        print(self.parent.type, self.parent.user)
         self.signals.started.emit()
-        con = QSqlDatabase.addDatabase('QSQLITE', self._id)
-        con.setDatabaseName(settings.DATABASE)
-        if not con.open():
-            raise exceptions.DatabaseClosedException
         filters = []
         if name := self.dialog.filters.name.text():
             name = os.path.splitext(name)[0]
@@ -167,6 +190,7 @@ class TransferFilterRunnable(BaseRunnable):
             search_func = self.recursive_search
         else:
             search_func = self.top_level_search
+        # Start Folders
         if len(self.dialog.folders) == 1:
             location_selections = {self.dialog.folders[0].root}
         else:
@@ -177,6 +201,18 @@ class TransferFilterRunnable(BaseRunnable):
         search_folders = (
             i for i in self.dialog.folders if i.root in location_selections
         )
+        # Destination Folders
+        if len(self.dialog.destinations) == 1:
+            dest_location_selections = {self.dialog.destinations[0].root}
+        else:
+            dest_location_selections = {
+                i.text() for i in self.dialog.destination_selections
+                if i.isChecked()
+            }
+        destination_folders = [
+            i for i
+            in self.dialog.destinations if i.root in dest_location_selections
+        ]
         batch_size = 1
         output = []
         for folder in search_folders:
@@ -192,15 +228,19 @@ class TransferFilterRunnable(BaseRunnable):
                     self.signals.aborted.emit()
                     return
                 if all(f(result) for f in filters):
-                    destination = os.path.abspath(
-                        os.path.join(
-                            self.destination.root,
-                            os.path.relpath(
-                                os.path.dirname(result.root),
-                                start=self.parent.root
+                    for destination in destination_folders:
+                        dest = os.path.abspath(
+                            os.path.join(
+                                destination.root,
+                                os.path.relpath(
+                                    result.root,
+                                    # start=self.parent.root
+                                    start=folder.root
+                                )
                             )
                         )
-                    )
+                        print('DEST:', dest)
+                    '''
                     # TODO: This was halfway re-worked
                     if batch_size % 100 == 0:
                         if database.add_transfers(
@@ -208,7 +248,6 @@ class TransferFilterRunnable(BaseRunnable):
                             destination=destination,
                             s_type=parent_type,
                             d_type=destination_type,
-                            con_name=self._id
                         ):
                             self.signals.select.emit()
                             if self.process:
@@ -229,8 +268,8 @@ class TransferFilterRunnable(BaseRunnable):
                         raise Exception
                     output.append(serialized_item)
                     batch_size += 1
+                    '''
         self.signals.finished.emit(f'Testing - {self.parent.root} - FINISHED')
-        con.close()
 
     def recursive_search(self, item):
         for _, __, files in item.walk():
@@ -241,11 +280,12 @@ class TransferFilterRunnable(BaseRunnable):
             if not result.is_dir:
                 yield result
 
+    def stop(self):
+        self.stopped = True
+
     @Slot()
     def closed(self):
         # Probably redundant but good practice to ensure GC
+        self.stopped = True
         self.parent = None
         self = None
-
-    def __del__(self, *args, **kwargs):
-        QSqlDatabase.removeDatabase(self._id)
