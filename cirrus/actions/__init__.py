@@ -1,7 +1,6 @@
 from . import (
     base,
     listings,
-    local,
     navigation,
     menus,
     s3,
@@ -13,7 +12,6 @@ from . import (
 __all__ = [
     'base',
     'listings',
-    'local',
     'navigation',
     'menus',
     's3',

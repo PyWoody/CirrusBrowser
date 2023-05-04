@@ -33,7 +33,7 @@ def file_listing_menu(menu, parent, files, folders, panels):
         if files and folders:
             for destination in destinations:
                 sub_menu.addAction(
-                    actions.listings.CopyMixedItemsAction(
+                    actions.listings.CopyRecursiveItemsAction(
                         parent, files, folders, destination
                     )
                 )
@@ -65,7 +65,7 @@ def file_listing_menu(menu, parent, files, folders, panels):
         if files and folders:
             for destination in destinations:
                 sub_menu.addAction(
-                    actions.listings.QueueMixedItemsAction(
+                    actions.listings.QueueRecursiveItemsAction(
                         parent, files, folders, destination
                     )
                 )

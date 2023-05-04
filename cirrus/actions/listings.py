@@ -35,7 +35,7 @@ class CreateDirectoryAction(BaseAction):
         return CreateDirectoryRunnable(self.parent, self.dialog)
 
 
-class CopyMixedItemsAction(BaseAction):
+class CopyRecursiveItemsAction(BaseAction):
 
     def __init__(self, parent, files, folders, destination):
         super().__init__(parent)
@@ -52,11 +52,11 @@ class CopyMixedItemsAction(BaseAction):
         )
 
     def runnable(self):
-        return MixedItemsRunnable(
+        return RecursiveAddItemsRunnable(
             self.parent,
-            self.files,
-            self.folders,
-            self.destination,
+            files=self.files,
+            folders=self.folders,
+            destination=self.destination,
             process=True
         )
 
@@ -75,8 +75,11 @@ class CopyFolderAction(BaseAction):
         )
 
     def runnable(self):
-        return FolderRunnable(
-            self.parent, self.source, self.destination, process=True
+        return RecursiveAddItemsRunnable(
+            self.parent,
+            folder=self.source,
+            destination=self.destination,
+            process=True,
         )
 
 
@@ -94,8 +97,11 @@ class CopyFoldersAction(BaseAction):
         )
 
     def runnable(self):
-        return FoldersRunnable(
-            self.parent, self.folders, self.destination, process=True
+        return RecursiveAddItemsRunnable(
+            self.parent,
+            folders=self.folders,
+            destination=self.destination,
+            process=True,
         )
 
 
@@ -152,7 +158,11 @@ class QueueFolderAction(BaseAction):
         )
 
     def runnable(self):
-        return FolderRunnable(self.parent, self.source, self.destination)
+        return RecursiveAddItemsRunnable(
+            self.parent,
+            folder=self.source,
+            destination=self.destination,
+        )
 
 
 class QueueFoldersAction(BaseAction):
@@ -169,10 +179,14 @@ class QueueFoldersAction(BaseAction):
         )
 
     def runnable(self):
-        return FoldersRunnable(self.parent, self.folders, self.destination)
+        return RecursiveAddItemsRunnable(
+            self.parent,
+            folders=self.folders,
+            destination=self.destination,
+        )
 
 
-class QueueMixedItemsAction(BaseAction):
+class QueueRecursiveItemsAction(BaseAction):
 
     def __init__(self, parent, files, folders, destination):
         super().__init__(parent)
@@ -190,8 +204,11 @@ class QueueMixedItemsAction(BaseAction):
         )
 
     def runnable(self):
-        return MixedItemsRunnable(
-            self.parent, self.files, self.folders, self.destination
+        return RecursiveAddItemsRunnable(
+            self.parent,
+            files=self.files,
+            folders=self.folders,
+            destination=self.destination,
         )
 
 
@@ -251,188 +268,28 @@ class CreateDirectoryRunnable(BaseRunnable):
         self.signals.callback.emit(self.parent().refresh)
 
 
-class FolderRunnable(BaseRunnable):
+class RecursiveAddItemsRunnable(BaseRunnable):
 
-    def __init__(self, parent, source, destination, process=False):
-        super().__init__()
-        self.parent = parent
-        self.process = process
-        self.source = source
-        self.signals = ActionSignals()
-        self.destination = destination
-
-    def run(self):
-        self.signals.started.emit()
-        parent_type = self.parent.type
-        destination_type = self.destination.type
-        processed = 0
-        # TODO: This is entirely duplicated from FoldersRunnable
-        for root, dirs, files in self.source.walk():
-            destination = os.path.abspath(
-                os.path.join(
-                    self.destination.root,
-                    os.path.relpath(root.root, start=self.parent.root)
-                )
-            )
-            # destination = self.destination.clean(destination)
-            batch_size = 1
-            output = []
-            for f_item in files:
-                if batch_size % 100 == 0:
-                    cb = partial(
-                        database.add_transfers,
-                        items=output,
-                        destination=destination,
-                        s_type=parent_type,
-                        d_type=destination_type,
-                    )
-                    self.signals.callback.emit(cb)
-                    self.signals.select.emit()
-                    if self.process:
-                        self.signals.process_queue.emit()
-                    output = []
-                # TODO: Is f_item not a fully fledged item?
-                #       Why does it need to be created?
-                print('here')
-                '''
-                if parent_type == 'local':
-                    fname = os.path.join(
-                        root.root, os.path.split(f_item.root)[1]
-                    )
-                    serialized_item = items.LocalItem(
-                        fname, size=os.stat(fname).st_size
-                    )
-                elif parent_type == 's3':
-                    fname = f'{root.root}{f_item.root.split("/")[-1]}'
-                    serialized_item = f_item.create(
-                        fname, size=f_item.size
-                    )
-                else:
-                    raise Exception
-                output.append(serialized_item)
-                '''
-                output.append(f_item)
-                batch_size += 1
-            if output:
-                cb = partial(
-                    database.add_transfers,
-                    items=output,
-                    destination=destination,
-                    s_type=parent_type,
-                    d_type=destination_type,
-                )
-                self.signals.callback.emit(cb)
-                self.signals.select.emit()
-                if self.process:
-                    self.signals.process_queue.emit()
-            processed += batch_size - 1
-        if processed:
-            self.signals.update.emit(
-                f'{processed:,} items were added to the queue.'
-            )
-        self.signals.select.emit()
-        if self.process:
-            self.signals.process_queue.emit()
-        self.signals.finished.emit(
-            f'Testing - {self.parent.root} - FOLDERS - FINISHED'
-        )
-
-
-class FoldersRunnable(BaseRunnable):
-
-    def __init__(self, parent, folders, destination, process=False):
-        super().__init__()
-        self.process = process
-        self.signals = ActionSignals()
-        self.parent = parent
-        self.folders = folders
-        self.destination = destination
-
-    def run(self):
-        # If Copy, a caught start will start the queue processing
-        # May have to re-emit start to prevent deadlocks
-        self.signals.started.emit()
-        parent_type = self.parent.type
-        destination_type = self.destination.type
-        for root_item in self.folders:
-            processed = 0
-            for root, dirs, files in root_item.walk():
-                destination = os.path.abspath(
-                    os.path.join(
-                        self.destination.root,
-                        os.path.relpath(root.root, start=self.parent.root)
-                    )
-                )
-                # destination = self.destination.clean(destination)
-                batch_size = 1
-                output = []
-                for f_item in files:
-                    if batch_size % 100 == 0:
-                        cb = partial(
-                            database.add_transfers,
-                            items=output,
-                            destination=destination,
-                            s_type=parent_type,
-                            d_type=destination_type,
-                        )
-                        self.signals.callback.emit(cb)
-                        self.signals.select.emit()
-                        if self.process:
-                            self.signals.process_queue.emit()
-                        output = []
-                    if parent_type == 'local':
-                        fname = os.path.join(
-                            root.root, os.path.split(f_item.root)[1]
-                        )
-                        # TODO: This will be an f_item as well
-                        serialized_item = items.LocalItem(
-                            fname, size=os.stat(fname).st_size
-                        )
-                    elif parent_type == 's3':
-                        fname = f'{root.root}{f_item.root.split("/")[-1]}'
-                        serialized_item = f_item.create(
-                            fname, size=f_item.size
-                        )
-                    else:
-                        raise Exception
-                    output.append(serialized_item)
-                    batch_size += 1
-                if output:
-                    cb = partial(
-                        database.add_transfers,
-                        items=output,
-                        destination=destination,
-                        s_type=parent_type,
-                        d_type=destination_type,
-                    )
-                    self.signals.callback.emit(cb)
-                    self.signals.select.emit()
-                    if self.process:
-                        self.signals.process_queue.emit()
-                processed += batch_size - 1
-            if processed:
-                self.signals.update.emit(f'Added {processed:,} to queue.')
-        if processed:
-            self.signals.update.emit(
-                f'{processed:,} items were added to the queue.'
-            )
-        self.signals.select.emit()
-        if self.process:
-            self.signals.process_queue.emit()
-        self.signals.finished.emit(
-            f'Testing - {self.parent.root} - FOLDERS - FINISHED'
-        )
-
-
-class MixedItemsRunnable(BaseRunnable):
-
-    def __init__(self, parent, files, folders, destination, process=False):
+    def __init__(
+        self,
+        parent,
+        *, 
+        destination,
+        folder=None,
+        folders=None,
+        files=None,
+        process=False
+    ):
         super().__init__()
         self.process = process
         self.signals = ActionSignals()
         self.parent = parent
         self.files = files
-        self.folders = folders
+        self.folders = []
+        if folder is not None:
+            self.folders.append(folder)
+        if folders is not None:
+            self.folders.extend(folders)
         self.destination = destination
 
     @Slot()
@@ -442,17 +299,18 @@ class MixedItemsRunnable(BaseRunnable):
         self.signals.started.emit()
         if self.process:
             self.signals.process_queue.emit()
-        cb = partial(
-            database.add_transfers,
-            items=self.files,
-            destination=self.destination.root,
-            s_type=self.parent.type,
-            d_type=self.destination.type,
-        )
-        self.signals.callback.emit(cb)
-        self.signals.select.emit()
-        if self.process:
-            self.signals.process_queue.emit()
+        if self.files is not None:
+            cb = partial(
+                database.add_transfers,
+                items=self.files,
+                destination=self.destination.root,
+                s_type=self.parent.type,
+                d_type=self.destination.type,
+            )
+            self.signals.callback.emit(cb)
+            self.signals.select.emit()
+            if self.process:
+                self.signals.process_queue.emit()
         # TODO: self.destination should be self.destinations
         #       for multiple destinations at once
         dst_item = items.types[self.destination.type.lower()]
