@@ -12,7 +12,7 @@ from cirrus.views.transfers import (
 )
 
 from PySide6.QtCore import Slot, Qt, QThreadPool, QTimer
-from PySide6.QtSql import QSqlDatabase, QSqlTableModel
+from PySide6.QtSql import QSqlDatabase
 from PySide6.QtWidgets import QMenu, QTabWidget, QVBoxLayout, QWidget
 
 

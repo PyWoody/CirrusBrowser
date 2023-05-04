@@ -1,14 +1,13 @@
 import os
-import uuid
 
+from collections import defaultdict
 from functools import partial
 
 from .base import BaseAction, BaseRunnable
-from cirrus import database, dialogs, exceptions, items, settings, utils
+from cirrus import database, dialogs, utils
 from cirrus.actions.signals import ActionSignals
 
 from PySide6.QtCore import Slot
-from PySide6.QtSql import QSqlDatabase
 
 
 class DropRowsAction(BaseAction):
@@ -34,14 +33,18 @@ class DropRowsRunnable(BaseRunnable):
 
     def run(self):
         # TODO: Items could still be in the database.hot_queue
+        dropped = 0
         for index in self.indexes:
             # removeRows was not working as expected
             if self.parent.model().removeRow(index.row()):
                 self.signals.update.emit(index.siblingAtColumn(1).data())
+                dropped += 1
             else:
                 self.signals.error.emit(f'Failed to drop row: {index.row()}')
         self.signals.select.emit()
-        self.signals.finished.emit('Finished drop')
+        self.signals.finished.emit(
+            f'Dropped {dropped:,} row{"s" if dropped != 1 else ""}.'
+        )
 
 
 class TransferFilterAction(BaseAction):
@@ -52,7 +55,7 @@ class TransferFilterAction(BaseAction):
         self.parent = parent
         self.destinations = list(destinations)
         self.folders = None if folders is None else list(folders)
-        self.setText('Copy (Filter)')
+        self.setText('Filter')
         self.setStatusTip(
             'Advanced controls for filtering with additional options'
         )
@@ -74,22 +77,17 @@ class TransferFilterAction(BaseAction):
 
 class TransferFilterRunnable(BaseRunnable):
 
-    def __init__(self, parent, dialog, process=False):
+    def __init__(self, parent, dialog):
         super().__init__()
         self.setAutoDelete(False)
         self.parent = parent
         self.dialog = dialog
-        self.process = process
         self.signals = ActionSignals()
         self.stopped = False
 
     @Slot()
     def run(self):
-        print(self.dialog.add_to_queue_radio.isChecked())
-        print(self.dialog.add_and_start_radio.isChecked())
-        print(self.dialog.folders)
-        print(self.dialog.destinations)
-        print(self.parent.type, self.parent.user)
+        self.process = self.dialog.add_and_start_radio.isChecked()
         self.signals.started.emit()
         filters = []
         if name := self.dialog.filters.name.text():
@@ -174,66 +172,96 @@ class TransferFilterRunnable(BaseRunnable):
                 i.text() for i in self.dialog.destination_selections
                 if i.isChecked()
             }
-        destination_folders = [
-            i for i
-            in self.dialog.destinations if i.root in dest_location_selections
+        destinations = [
+            i for i in self.dialog.destinations
+            if i.root in dest_location_selections
         ]
-        batch_size = 1
-        output = []
         for folder in search_folders:
+            batch_size = 1
+            processed = 0
+            output = defaultdict(list)
             if self.stopped:
-                # TODO: Push to the DB anything pending
+                if output:
+                    for dest, queued_items in output.items():
+                        cb = partial(
+                            database.add_transfers,
+                            items=queued_items,
+                            destination=dest.root,
+                            s_type=folder.type,
+                            d_type=dest.type,
+                        )
+                        self.signals.callback.emit(cb)
+                    self.signals.select.emit()
+                    if self.process:
+                        self.signals.process_queue.emit()
                 self.signals.finished.emit('Stopped')
                 self.signals.aborted.emit()
                 return
             for result in search_func(folder):
                 if self.stopped:
-                    # TODO: Push to the DB anything pending
+                    if output:
+                        for dest, queued_items in output.items():
+                            cb = partial(
+                                database.add_transfers,
+                                items=queued_items,
+                                destination=dest.root,
+                                s_type=folder.type,
+                                d_type=dest.type,
+                            )
+                            self.signals.callback.emit(cb)
+                        self.signals.select.emit()
+                        if self.process:
+                            self.signals.process_queue.emit()
                     self.signals.finished.emit('Stopped')
                     self.signals.aborted.emit()
                     return
                 if all(f(result) for f in filters):
-                    for destination in destination_folders:
-                        dest = os.path.abspath(
-                            os.path.join(
-                                destination.root,
-                                os.path.relpath(
-                                    result.root,
-                                    # start=self.parent.root
-                                    start=folder.root
+                    for destination in destinations:
+                        if batch_size % 100 == 0:
+                            for dst_root_type, queued_items in output.items():
+                                cb = partial(
+                                    database.add_transfers,
+                                    items=queued_items,
+                                    destination=dst_root_type[0],
+                                    s_type=folder.type,
+                                    d_type=dst_root_type[1],
                                 )
-                            )
-                        )
-                        print('DEST:', dest)
-                    '''
-                    # TODO: This was halfway re-worked
-                    if batch_size % 100 == 0:
-                        if database.add_transfers(
-                            items=output,
-                            destination=destination,
-                            s_type=parent_type,
-                            d_type=destination_type,
-                        ):
+                                self.signals.callback.emit(cb)
                             self.signals.select.emit()
                             if self.process:
                                 self.signals.process_queue.emit()
-                        else:
-                            self.signals.error.emit('ERROR')
-                        output = []
-                    if parent_type == 'local':
-                        serialized_item = items.LocalItem(
-                            result.root, size=os.stat(result.root).st_size
+                            output = defaultdict(list)
+                        dst_path = os.path.dirname(
+                            os.path.abspath(
+                                os.path.join(
+                                    destination.root,
+                                    os.path.basename(folder.root.rstrip('/')),
+                                    os.path.relpath(
+                                        result.root,
+                                        start=folder.root
+                                    )
+                                )
+                            )
                         )
-                    elif parent_type == 's3':
-                        fname = f'{self.root}{result.root.split("/")[-1]}'
-                        serialized_item = result.create(
-                            fname, size=result.size
+                        output[(dst_path, destination.type)].append(result)
+                        batch_size += 1
+                if output:
+                    for dst_root_type, queued_items in output.items():
+                        cb = partial(
+                            database.add_transfers,
+                            items=queued_items,
+                            destination=dst_root_type[0],
+                            s_type=folder.type,
+                            d_type=dst_root_type[1],
                         )
-                    else:
-                        raise Exception
-                    output.append(serialized_item)
-                    batch_size += 1
-                    '''
+                        self.signals.callback.emit(cb)
+                    self.signals.select.emit()
+                    if self.process:
+                        self.signals.process_queue.emit()
+                    output = defaultdict(list)
+                processed += batch_size - 1
+            if processed:
+                self.signals.update.emit(f'Added {processed:,} to queue.')
         self.signals.finished.emit(f'Testing - {self.parent.root} - FINISHED')
 
     def recursive_search(self, item):

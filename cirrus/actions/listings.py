@@ -273,7 +273,7 @@ class RecursiveAddItemsRunnable(BaseRunnable):
     def __init__(
         self,
         parent,
-        *, 
+        *,
         destination,
         folder=None,
         folders=None,
@@ -311,16 +311,13 @@ class RecursiveAddItemsRunnable(BaseRunnable):
             self.signals.select.emit()
             if self.process:
                 self.signals.process_queue.emit()
-        # TODO: self.destination should be self.destinations
-        #       for multiple destinations at once
-        dst_item = items.types[self.destination.type.lower()]
         for folder in self.folders:
             processed = 0
             for root, dirs, files in folder.walk():
                 destination = os.path.abspath(
                     os.path.join(
                         self.destination.root,
-                        os.path.basename(root.root),
+                        os.path.basename(folder.root.rstrip('/')),
                         os.path.relpath(root.root, start=folder.root)
                     )
                 )
@@ -340,16 +337,7 @@ class RecursiveAddItemsRunnable(BaseRunnable):
                         if self.process:
                             self.signals.process_queue.emit()
                         output = []
-
-                    fname = os.path.abspath(
-                        os.path.join(
-                            destination,
-                            os.path.relpath(f.root, start=folder.root)
-                        )
-                    )
-                    user = items.new_user(self.destination.user, fname)
-                    serialized_item = dst_item.create(user, size=f.size)
-                    output.append(serialized_item)
+                    output.append(f)
                     batch_size += 1
                 if output:
                     cb = partial(

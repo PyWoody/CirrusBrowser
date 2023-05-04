@@ -16,6 +16,10 @@ from botocore.config import Config
 from boto3.s3.transfer import TransferConfig
 
 
+# TODO: "user" is incredibly confusing and non-ituitive.
+#       data? metdata? info? settings? client (+1)?
+
+
 class TransferItem:
 
     __slots__ = (
@@ -143,7 +147,8 @@ class LocalItem:
         self.ctime = ctime
 
     def __repr__(self):
-        return (f'{self.__class__.__name__}("{self.root}", '
+        return (f'{self.__class__.__name__}('
+                f'{self.user}, '
                 f'size={self.size}, '
                 f'is_dir={self.is_dir}, '
                 f'mtime={self.mtime}, '
@@ -309,7 +314,8 @@ class BaseS3Item:
         self.config = None
 
     def __repr__(self):
-        return (f'{self.__class__.__name__}("{self.root}", '
+        return (f'{self.__class__.__name__}('
+                f'{self.user}, '
                 f'size={self.size}, '
                 f'collapsed={self.collapsed}, '
                 f'is_dir={self.is_dir}, '
