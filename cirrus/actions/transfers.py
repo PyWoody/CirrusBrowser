@@ -34,49 +34,14 @@ class DropRowsRunnable(BaseRunnable):
 
     def run(self):
         # TODO: Items could still be in the database.hot_queue
-        # TODO: removeRows can take a count. Do in groups, else removeRow(
-        prev_row = None
-        row_group = []
         for index in self.indexes:
-            if prev_row is None:
-                prev_row = index.row()
-                row_group.append(index)
-            elif (prev_row + 1) == index.row():
-                row_group.append(index)
+            # removeRows was not working as expected
+            if self.parent.model().removeRow(index.row()):
+                self.signals.update.emit(index.siblingAtColumn(1).data())
             else:
-                # Pending rows
-                success = self.parent.model().removeRows(
-                    row_group[0].row(), len(row_group)
-                )
-                if success:
-                    for row in row_group:
-                        self.signals.update.emit(
-                            row.siblingAtColumn(1).data()
-                        )
-                else:
-                    self.signals.error.emit(
-                        f'Failed to drop rows {row_group[0].row()} to '
-                        f'{row_group[-1].row()}'
-                    )
-                # Current row
-                if self.parent.model().removeRow(index.row()):
-                    self.signals.update.emit(index.siblingAtColumn(1).data())
-                else:
-                    self.signals.error.emit(f'Failed to drop row: {index.row()}')
-                prev_row = None
-                row_group = []
-        if row_group:
-            success = self.parent.model().removeRows(
-                row_group[0].row(), len(row_group)
-            )
-            if success:
-                for row in row_group:
-                    self.signals.update.emit(
-                        row.siblingAtColumn(1).data()
-                    )
+                self.signals.error.emit(f'Failed to drop row: {index.row()}')
         self.signals.select.emit()
         self.signals.finished.emit('Finished drop')
-        self.parent.model().submitAll()
 
 
 class TransferFilterAction(BaseAction):

@@ -86,7 +86,7 @@ class TransfersWindow(QWidget):
         runnable = action.runnable()
         runnable.signals.select.connect(widget.model().select)
         runnable.signals.error.connect(print)
-        runnable.signals.update.connect(self.database_queue.remove_item)
+        # runnable.signals.update.connect(self.database_queue.remove_item)
         runnable.signals.callback.connect(utils.execute_callback)
         runnable.signals.finished.connect(print)
         self.threadpool.start(runnable)
