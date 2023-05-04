@@ -107,6 +107,7 @@ class LocalFileListingView(FileListingTreeView):
 
     def __init__(self, user, parent=None):
         super().__init__(parent)
+        user = user.copy()
         if root := user.get('Root'):
             self.root = root
         else:
