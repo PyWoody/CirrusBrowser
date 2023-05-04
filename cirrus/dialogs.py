@@ -425,12 +425,18 @@ class TransferItemsDialog(QDialog):
                     btn.setEnabled(True)
 
     def all_locations_deselected(self):
-        has_selection = any(
-            btn.isChecked() for btn in self.location_selections
-        )
-        has_destination = any(
-            btn.isChecked() for btn in self.destination_selections
-        )
+        if self.location_selections:
+            has_selection = any(
+                btn.isChecked() for btn in self.location_selections
+            )
+        else:
+            has_selection = True
+        if self.destination_selections:
+            has_destination = any(
+                btn.isChecked() for btn in self.destination_selections
+            )
+        else:
+            has_destination = True
         return not all((has_destination, has_selection))
 
     @Slot(bool)
