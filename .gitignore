@@ -4,6 +4,7 @@ setup.json
 *.db
 logs/
 .ruff_cache/
+TODO.md
 
 # Vim-stuff
 # Swap
