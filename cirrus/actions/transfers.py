@@ -55,7 +55,7 @@ class TransferFilterAction(BaseAction):
         self.parent = parent
         self.destinations = list(destinations)
         self.folders = None if folders is None else list(folders)
-        self.setText('Filter')
+        self.setText('Advanced')
         self.setStatusTip(
             'Advanced controls for filtering with additional options'
         )
@@ -259,7 +259,7 @@ class TransferFilterRunnable(BaseRunnable):
                     if self.process:
                         self.signals.process_queue.emit()
                     output = defaultdict(list)
-                processed += batch_size - 1
+            processed += batch_size - 1
             if processed:
                 self.signals.update.emit(f'Added {processed:,} to queue.')
         self.signals.finished.emit(f'Testing - {self.parent.root} - FINISHED')

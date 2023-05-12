@@ -151,6 +151,7 @@ class CentralWidgetWindow(QWidget):  # Terrible name
             runnable.signals.select.connect(model.select)
         runnable.signals.ss_callback.connect(utils.execute_ss_callback)
         runnable.signals.callback.connect(utils.execute_callback)
+        runnable.signals.finished.connect(print)
         self.threadpool.start(runnable)
 
     def s3_context_menu(self, parent, pos, files, folders):

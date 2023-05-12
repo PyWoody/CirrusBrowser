@@ -308,7 +308,7 @@ class TransferItemsDialog(QDialog):
                     self.destinations.append(dest)
                     __processed_dests.add(dest.root)
         self.destinations.sort(key=lambda x: x.root)
-        self.setWindowTitle('Copy')
+        self.setWindowTitle('Advanced Copy')
         self.recursive = False
         button_bar_layout = QHBoxLayout()
         self.button_box = QDialogButtonBox()
