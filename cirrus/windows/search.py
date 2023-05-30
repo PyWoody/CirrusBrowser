@@ -68,7 +68,7 @@ class SearchResultsWindow(QWidget):
 
         self.label_actions = []
         layout = QVBoxLayout()
-        if len(labels) > 1:
+        if len([i for i in labels if i.isChecked()]) > 1:
             label_flow_layout = FlowLayout()
             _label = QLabel()
             _label.setText('Locations:')
@@ -124,16 +124,7 @@ class SearchResultsWindow(QWidget):
             ):
                 self.view.setRowHidden(row.row(), parent, False)
             for label in self.label_actions:
-                if all(
-                    not self.view.isRowHidden(row.row(), parent)
-                    for row in self.view.model().match(
-                        index,
-                        Qt.DisplayRole,
-                        label.text(),
-                        flags=Qt.MatchStartsWith,
-                        hits=-1,
-                    )
-                ):
+                if self.label_has_results(label, index):
                     if not label.isChecked():
                         label.setChecked(True)
         else:
@@ -168,16 +159,7 @@ class SearchResultsWindow(QWidget):
                 self.disable_action_btns()
             else:
                 for label in self.label_actions:
-                    if all(
-                        self.view.isRowHidden(row.row(), parent)
-                        for row in self.view.model().match(
-                            index,
-                            Qt.DisplayRole,
-                            label.text(),
-                            flags=Qt.MatchStartsWith,
-                            hits=-1,
-                        )
-                    ):
+                    if not self.label_has_results(label, index):
                         if label.isChecked():
                             label.setChecked(False)
 
@@ -281,13 +263,37 @@ class SearchResultsWindow(QWidget):
             self.select_all_btn.setEnabled(True)
         if msg in {'Stopped', 'Aborted', 'Completed'}:
             self.setWindowTitle(f'Search Results - {msg}')
+            index = self.view.model().index(0, 1)
             for label in self.label_actions:
-                if not label.isEnabled():
-                    label.setEnabled(True)
-                    label.setCheckable(True)
-                    label.setChecked(True)
+                if self.label_has_results(label, index):
+                    if not label.isEnabled():
+                        label.setEnabled(True)
+                        label.setCheckable(True)
+                        label.setChecked(True)
         else:
             self.setWindowTitle('Search Results')
+
+    def label_has_results(self, label, index, parent=QModelIndex()):
+        if self.view.model().match(
+            index,
+            Qt.DisplayRole,
+            label.text(),
+            flags=Qt.MatchStartsWith,
+            hits=1,
+        ):
+
+            if any(
+                not self.view.isRowHidden(row.row(), parent)
+                for row in self.view.model().match(
+                    index,
+                    Qt.DisplayRole,
+                    label.text(),
+                    flags=Qt.MatchStartsWith,
+                    hits=-1,
+                )
+            ):
+                return True
+        return False
 
     @Slot()
     def all_checked(self):
