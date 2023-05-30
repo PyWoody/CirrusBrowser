@@ -4,6 +4,7 @@ import itertools
 from functools import partial
 
 from cirrus.models import SearchResultsModel
+from cirrus import utils
 from cirrus.views.search import SearchResultsTreeView
 from cirrus.widgets import FlowLayout
 
@@ -44,6 +45,8 @@ class SearchResultsWindow(QWidget):
         self.view.all_unchecked.connect(self.disable_action_btns)
         self.view.all_checked.connect(self.all_checked)
 
+        self.timer_events = dict()
+
         button_layout = QHBoxLayout()
         self.select_all_btn = QPushButton('Select All')
         self.select_all_btn.clicked.connect(self.select_all)
@@ -58,7 +61,7 @@ class SearchResultsWindow(QWidget):
         self.download_btn.setEnabled(False)
         self.download_btn.clicked.connect(self.download)
         self.stop_btn.clicked.connect(self.aborted.emit)
-        self.stop_btn.clicked.connect(partial(self.stop_btn.setEnabled, False))
+        self.stop_btn.clicked.connect(self.stopped)
         button_layout.addWidget(self.select_all_btn)
         button_layout.addWidget(self.clear_selection_btn)
         button_layout.addStretch(1)
@@ -108,6 +111,11 @@ class SearchResultsWindow(QWidget):
         else:
             super().keyPressEvent(event)
 
+    @Slot(bool)
+    def stopped(self, checked):
+        QTimer.singleShot(0, partial(self.stop_btn.setEnabled, False))
+
+    @utils.long_running_action(cursor=Qt.BusyCursor)
     @Slot(str, object)
     def label_toggled(self, root, action):
         index = self.view.model().index(0, 1)
@@ -163,6 +171,7 @@ class SearchResultsWindow(QWidget):
                         if label.isChecked():
                             label.setChecked(False)
 
+    @utils.long_running_action()
     @Slot()
     def clear_selection(self):
         self.disable_action_btns()
@@ -201,6 +210,7 @@ class SearchResultsWindow(QWidget):
                 )
                 group = list(itertools.islice(g_checkboxes, 0, batch_size))
 
+    @utils.long_running_action()
     @Slot()
     def select_all(self):
         self.select_all_btn.setEnabled(False)

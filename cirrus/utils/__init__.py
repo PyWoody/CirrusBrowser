@@ -5,7 +5,7 @@ from html.parser import HTMLParser
 
 from . import date, files, threads
 
-from PySide6.QtCore import QTimer, Slot
+from PySide6.QtCore import Qt, QTimer, Slot
 from PySide6.QtWidgets import QFrame
 
 
@@ -52,6 +52,43 @@ def execute_ss_callback(func):
         QTimer.singleShot(0, func)
     except Exception as e:
         logging.warn(f'Failed to execute {func!r} with error {e}')
+
+
+class long_running_action:
+
+    timer_events_status = dict()
+
+    def __init__(self, wait=100, cursor=Qt.WaitCursor):
+        self.wait = wait
+        self.cursor = cursor
+        self.cls = None
+
+    def __call__(self, func):
+        def cb(*args, **kwargs):
+            self.cls = args[0]
+            self.cls.timerEvent = self.timerEvent
+            timer_id = self.cls.startTimer(self.wait)
+            self.timer_events_status[timer_id] = False
+            result = func(*args, **kwargs)
+            QTimer.singleShot(0, partial(self.finished, timer_id))
+            return result
+        return cb
+
+    def finished(self, timer_id):
+        self.timer_events_status[timer_id] = True
+
+    def timerEvent(self, event):
+        timer_id = event.timerId()
+        completed = self.timer_events_status.get(timer_id)
+        if completed is not None:
+            if completed:
+                if self.cls.cursor().shape() != Qt.ArrowCursor:
+                    self.cls.setCursor(Qt.ArrowCursor)
+                del self.timer_events_status[timer_id]
+                self.cls.killTimer(timer_id)
+            else:
+                if self.cls.cursor().shape() != self.cursor:
+                    self.cls.setCursor(self.cursor)
 
 
 def html_to_text(html):
