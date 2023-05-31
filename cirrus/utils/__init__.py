@@ -56,16 +56,19 @@ def execute_ss_callback(func):
 
 class long_running_action:
 
-    timer_events_status = dict()
 
     def __init__(self, wait=100, cursor=Qt.WaitCursor):
         self.wait = wait
         self.cursor = cursor
+        self.timer_events_status = dict()
+        self.orig_timer_event = None
         self.cls = None
 
     def __call__(self, func):
         def cb(*args, **kwargs):
             self.cls = args[0]
+            if self.orig_timer_event is None:
+                self.orig_timer_event = self.cls.timerEvent
             self.cls.timerEvent = self.timerEvent
             timer_id = self.cls.startTimer(self.wait)
             self.timer_events_status[timer_id] = False
@@ -77,6 +80,10 @@ class long_running_action:
     def finished(self, timer_id):
         self.timer_events_status[timer_id] = True
 
+    def restore(self):
+        if not self.timer_events_status:
+            self.cls.timerEvent = self.orig_timer_event
+
     def timerEvent(self, event):
         timer_id = event.timerId()
         completed = self.timer_events_status.get(timer_id)
@@ -84,8 +91,9 @@ class long_running_action:
             if completed:
                 if self.cls.cursor().shape() != Qt.ArrowCursor:
                     self.cls.setCursor(Qt.ArrowCursor)
-                del self.timer_events_status[timer_id]
                 self.cls.killTimer(timer_id)
+                del self.timer_events_status[timer_id]
+                self.restore()
             else:
                 if self.cls.cursor().shape() != self.cursor:
                     self.cls.setCursor(self.cursor)
