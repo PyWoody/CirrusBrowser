@@ -1,3 +1,5 @@
+import heapq
+
 from cirrus.delegates import ProgressBarDelegate
 
 from PySide6.QtCore import Qt, Signal
@@ -72,15 +74,15 @@ class TransfersDatabaseTreeView(QTreeView):
         header.setSectionHidden(dest_type_col, True)
 
     def contextMenuEvent(self, event):
-        selected_indexes = []
-        prev_row = None
+        processed = set()
+        index_heap = []
         for index in self.selectedIndexes():
-            if (row := index.row()) != prev_row:
-                selected_indexes.append(index)
-                prev_row = row
-        if selected_indexes:
+            if index.row() not in processed:
+                heapq.heappush(index_heap, (index.row(), index))
+                processed.add(index.row())
+        if index_heap:
             self.context_selections.emit(
-                self, event.globalPos(), selected_indexes
+                self, event.globalPos(), [i for _, i in index_heap]
             )
 
 

@@ -35,16 +35,20 @@ class DropRowsRunnable(BaseRunnable):
         # TODO: Items could still be in the database.hot_queue
         dropped = 0
         for index in self.indexes:
-            # removeRows was not working as expected
+            if not index.isValid():
+                print('wtf', index); continue
             if self.parent.model().removeRow(index.row()):
-                self.signals.update.emit(index.siblingAtColumn(1).data())
+                # self.signals.update.emit(index.siblingAtColumn(1).data())
                 dropped += 1
             else:
                 self.signals.error.emit(f'Failed to drop row: {index.row()}')
-        self.signals.select.emit()
-        self.signals.finished.emit(
-            f'Dropped {dropped:,} row{"s" if dropped != 1 else ""}.'
-        )
+        if dropped:
+            self.signals.select.emit()
+            self.signals.finished.emit(
+                f'Dropped {dropped:,} row{"s" if dropped != 1 else ""}.'
+            )
+        else:
+            self.signals.finished.emit('Failed to drop any rows.')
 
 
 class TransferFilterAction(BaseAction):

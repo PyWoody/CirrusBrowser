@@ -47,8 +47,6 @@ class TransfersTableModel(QSqlTableModel):
         )
         if query.next():
             self.max_num_rows = int(query.value(0))
-        else:
-            self.max_num_rows = 0
         self.endResetModel()
 
     def delta_select(self, *, delta=2):
