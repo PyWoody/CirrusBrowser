@@ -188,7 +188,10 @@ class SearchResultsWindow(QWidget):
             heapq.heappush(checkboxes_heap, (checkbox.row(), checkbox))
         if checkboxes_heap:
             batch_size = 100
-            g_checkboxes = (i for _, i in checkboxes_heap)
+            g_checkboxes = (
+                heapq.heappop(checkboxes_heap)[1]
+                for _ in range(len(checkboxes_heap))
+            )
             group = list(itertools.islice(g_checkboxes, 0, batch_size))
             while group:
                 QTimer.singleShot(
@@ -228,7 +231,10 @@ class SearchResultsWindow(QWidget):
                 heapq.heappush(checkboxes_heap, (checkbox.row(), checkbox))
         if checkboxes_heap:
             batch_size = 100
-            g_checkboxes = (i for _, i in checkboxes_heap)
+            g_checkboxes = (
+                heapq.heappop(checkboxes_heap)[1]
+                for _ in range(len(checkboxes_heap))
+            )
             group = list(itertools.islice(g_checkboxes, 0, batch_size))
             while group:
                 QTimer.singleShot(
