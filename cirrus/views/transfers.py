@@ -1,8 +1,21 @@
 import heapq
+import time
 
+from functools import partial
+
+from cirrus import utils
 from cirrus.delegates import ProgressBarDelegate
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import (
+    QItemSelectionModel,
+    QItemSelection,
+    QModelIndex,
+    Qt,
+    QTimer,
+    Signal,
+    Slot,
+)
+from PySide6.QtGui import QContextMenuEvent, QKeyEvent, QKeySequence
 from PySide6.QtWidgets import QAbstractItemView, QHeaderView, QTreeView
 
 
@@ -43,6 +56,11 @@ class TransfersDatabaseTreeView(QTreeView):
         self.setTextElideMode(Qt.ElideMiddle)
         delegate = ProgressBarDelegate(self)
         self.setItemDelegateForColumn(3, delegate)
+        self.shift_down = False
+        self.ctrl_down = False
+        self.last_selected_index = QModelIndex()
+        self.selected_indexes = set()
+        self.clicked.connect(self.update_selected_indexes)
 
     def setup_header(self):
         # columns (original (get updated before moving))
@@ -73,16 +91,91 @@ class TransfersDatabaseTreeView(QTreeView):
         header.setSectionHidden(source_type_col, True)
         header.setSectionHidden(dest_type_col, True)
 
+    @Slot(QKeyEvent)
+    def keyPressEvent(self, event):
+        key_combo = event.keyCombination().toCombined()
+        if key_combo == QKeySequence(Qt.CTRL | Qt.Key_A):
+            self.select_all()
+        else:
+            if event.key() == Qt.Key_Shift:
+                self.shift_down = True
+            elif event.key() == Qt.Key_Control:
+                self.ctrl_down = True
+            super().keyPressEvent(event)
+
+    @Slot(QKeyEvent)
+    def keyReleaseEvent(self, event):
+        self.shift_down = False
+        self.ctrl_down = False
+        return super().keyReleaseEvent(event)
+
+    @utils.long_running_action()
+    def select_all(self):
+        model = self.model()
+        selection_model = self.selectionModel()
+        group = []
+        for row in range(model.rowCount()):
+            item = model.index(row, 0)
+            if item.isValid() and not selection_model.isSelected(item):
+                self.selected_indexes.add(item)
+                group.append(item)
+                if len(group) % 100 == 0:
+                    QTimer.singleShot(
+                        0,
+                        partial(
+                            selection_model.select,
+                            QItemSelection(group[0], group[-1]),
+                            QItemSelectionModel.Rows | QItemSelectionModel.Select
+                        )
+                    )
+                    group = []
+        if group:
+            QTimer.singleShot(
+                0,
+                partial(
+                    selection_model.select,
+                    QItemSelection(group[0], group[-1]),
+                    QItemSelectionModel.Rows | QItemSelectionModel.Select
+                )
+            )
+
+    @Slot(QModelIndex)
+    def update_selected_indexes(self, index):
+        if index.isValid():
+            if self.shift_down and self.last_selected_index.isValid():
+                if index.row() > self.last_selected_index.row():
+                    indexes_range = range(
+                        self.last_selected_index.row(), index.row()
+                    )
+                else:
+                    indexes_range = range(
+                        index.row(), self.last_selected_index.row()
+                    )
+                for row in indexes_range:
+                    self.selected_indexes.add(self.model().index(row, 0))
+            elif self.ctrl_down:
+                self.selected_indexes.add(index)
+            else:
+                self.selected_indexes = {index}
+            self.last_selected_index = index
+
+    @Slot(QContextMenuEvent)
     def contextMenuEvent(self, event):
-        processed = set()
         index_heap = []
-        for index in self.selectedIndexes():
-            if index.row() not in processed:
-                heapq.heappush(index_heap, (index.row(), index))
-                processed.add(index.row())
+        updated_cursor = False
+        epoch = time.time()
+        for index in self.selected_indexes:
+            if not updated_cursor and (time.time() - epoch) > 0.1:
+                self.setCursor(Qt.WaitCursor)
+                updated_cursor = True
+            heapq.heappush(index_heap, (index.row(), index))
+        if updated_cursor:
+            self.setCursor(Qt.ArrowCursor)
         if index_heap:
             self.context_selections.emit(
-                self, event.globalPos(), [i for _, i in index_heap]
+                self,
+                event.globalPos(),
+                [heapq.heappop(index_heap)[1] for _ in range(len(index_heap))]
             )
 
 
