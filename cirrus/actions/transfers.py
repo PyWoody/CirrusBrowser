@@ -34,9 +34,8 @@ class DropRowsRunnable(BaseRunnable):
     def run(self):
         # TODO: Items could still be in the database.hot_queue
         dropped = 0
+        # Fails on large selections
         for index in self.indexes:
-            if not index.isValid():
-                print('wtf', index); continue
             if self.parent.model().removeRow(index.row()):
                 # self.signals.update.emit(index.siblingAtColumn(1).data())
                 dropped += 1

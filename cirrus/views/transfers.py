@@ -15,7 +15,12 @@ from PySide6.QtCore import (
     Signal,
     Slot,
 )
-from PySide6.QtGui import QContextMenuEvent, QKeyEvent, QKeySequence
+from PySide6.QtGui import (
+    QGuiApplication,
+    QContextMenuEvent,
+    QKeyEvent,
+    QKeySequence,
+)
 from PySide6.QtWidgets import QAbstractItemView, QHeaderView, QTreeView
 
 
@@ -60,7 +65,7 @@ class TransfersDatabaseTreeView(QTreeView):
         self.ctrl_down = False
         self.last_selected_index = QModelIndex()
         self.selected_indexes = set()
-        self.clicked.connect(self.update_selected_indexes)
+        self.pressed.connect(self.update_selected_indexes)
 
     def setup_header(self):
         # columns (original (get updated before moving))
@@ -115,10 +120,10 @@ class TransfersDatabaseTreeView(QTreeView):
         selection_model = self.selectionModel()
         group = []
         for row in range(model.rowCount()):
-            item = model.index(row, 0)
-            if item.isValid() and not selection_model.isSelected(item):
-                self.selected_indexes.add(item)
-                group.append(item)
+            index = model.index(row, 0)
+            if index.isValid() and not selection_model.isSelected(index):
+                self.selected_indexes.add(index)
+                group.append(index)
                 if len(group) % 100 == 0:
                     QTimer.singleShot(
                         0,
@@ -141,6 +146,7 @@ class TransfersDatabaseTreeView(QTreeView):
 
     @Slot(QModelIndex)
     def update_selected_indexes(self, index):
+        index = index.siblingAtColumn(0)
         if index.isValid():
             if self.shift_down and self.last_selected_index.isValid():
                 if index.row() > self.last_selected_index.row():
@@ -153,10 +159,18 @@ class TransfersDatabaseTreeView(QTreeView):
                     )
                 for row in indexes_range:
                     self.selected_indexes.add(self.model().index(row, 0))
-            elif self.ctrl_down:
                 self.selected_indexes.add(index)
+            elif self.ctrl_down:
+                if index in self.selected_indexes:
+                    self.selected_indexes.remove(index)
+                else:
+                    self.selected_indexes.add(index)
             else:
-                self.selected_indexes = {index}
+                if QGuiApplication.mouseButtons() == Qt.RightButton:
+                    if index not in self.selected_indexes:
+                        self.selected_indexes = {index}
+                else:
+                    self.selected_indexes = {index}
             self.last_selected_index = index
 
     @Slot(QContextMenuEvent)
