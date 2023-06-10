@@ -697,6 +697,32 @@ class ListModel(QAbstractListModel):
         if role == Qt.DisplayRole:
             return self.items[index.row()]
 
+    def insertRows(self, row, count, parent=QModelIndex()):
+        try:
+            self.beginInsertRows(parent, row, count)
+            self.endInsertRows()
+        except Exception as e:
+            cls_name = self.__class__.__name__
+            logging.warn(
+                (f'Could not add {count} new '
+                 f'rows starting from {row} to {cls_name}: {e:!r}')
+            )
+            return False
+        else:
+            return True
+
+    def removeRows(self, row, count, parent=QModelIndex()):
+        self.beginRemoveRows()
+        while count:
+            count -= 1
+            try:
+                _ = self.items.pop(row + count)
+            except IndexError:
+                self.endRemoveRows()
+                return False
+        self.endRemoveRows()
+        return True
+
     def update_items(self, items):
         if items:
             self.beginResetModel()
