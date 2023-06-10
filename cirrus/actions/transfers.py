@@ -27,28 +27,20 @@ class DropRowsRunnable(BaseRunnable):
 
     def __init__(self, parent, indexes):
         super().__init__()
+        self.setAutoDelete(False)
         self.parent = parent
         self.signals = ActionSignals()
         self.indexes = indexes
 
     def run(self):
         # TODO: Items could still be in the database.hot_queue
-        dropped = 0
-        # Fails on large selections
+        self.parent.clearSelection()
+        model = self.parent.model()
         for index in self.indexes:
-            if self.parent.model().removeRow(index.row()):
-                # self.signals.update.emit(index.siblingAtColumn(1).data())
-                dropped += 1
-            else:
-                self.signals.error.emit(f'Failed to drop row: {index.row()}')
-        if dropped:
-            self.signals.select.emit()
-            self.signals.finished.emit(
-                f'Dropped {dropped:,} row{"s" if dropped != 1 else ""}.'
+            self.signals.ss_callback.emit(
+                partial(model.removeRow, index.row())
             )
-        else:
-            self.signals.finished.emit('Failed to drop any rows.')
-
+        self.signals.ss_callback.emit(self.signals.select.emit)
 
 class TransferFilterAction(BaseAction):
 
