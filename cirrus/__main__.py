@@ -2,6 +2,7 @@ import logging
 
 from cirrus import database, settings
 
+from PySide6.QtGui import QColor, QPalette
 from PySide6.QtSql import QSqlDatabase
 from PySide6.QtWidgets import QApplication
 
@@ -37,6 +38,23 @@ if __name__ == '__main__':
     app.aboutToQuit.connect(app.closeAllWindows)
     if not create_connection():
         sys.exit(1)
+    palette = QPalette()
+    palette.setColor(
+        QPalette.ColorRole.Window, QColor(217, 227, 201, 255)
+    )
+    palette.setColor(
+        QPalette.ColorRole.Text, QColor(42, 56, 40)
+    )
+    palette.setColor(
+        QPalette.ColorRole.Button, QColor(210, 209, 195, 255)
+    )
+    palette.setColor(
+        QPalette.ColorRole.Highlight, QColor(141, 184, 186, 255)
+    )
+    palette.setColor(
+        QPalette.ColorRole.HighlightedText, QColor(84, 100, 68)
+    )
+    app.setPalette(palette)
     window = MainWindow()
     window.closed.connect(app.closeAllWindows)
     window.show()
