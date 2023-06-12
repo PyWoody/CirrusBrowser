@@ -2,9 +2,8 @@ import os
 
 from functools import partial
 
-from .base import BaseAction, BaseRunnable
 from .search import SearchByPanelAction
-from cirrus import settings, utils, windows
+from cirrus import settings
 
 from PySide6.QtCore import Slot
 from PySide6.QtGui import QAction, QIcon

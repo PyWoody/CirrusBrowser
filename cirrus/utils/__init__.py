@@ -71,7 +71,9 @@ class long_running_action:
             timer_id = self.cls.startTimer(self.wait)
             self.timer_events[timer_id] = (orig_timer_event, False)
             result = func(*args, **kwargs)
-            QTimer.singleShot(0, partial(self.finished, orig_timer_event, timer_id))
+            QTimer.singleShot(
+                0, partial(self.finished, orig_timer_event, timer_id)
+            )
             return result
         return cb
 

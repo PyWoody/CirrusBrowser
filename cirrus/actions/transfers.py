@@ -42,6 +42,7 @@ class DropRowsRunnable(BaseRunnable):
             )
         self.signals.ss_callback.emit(self.signals.select.emit)
 
+
 class TransferFilterAction(BaseAction):
 
     def __init__(self, parent, *, destinations, folders=None):
