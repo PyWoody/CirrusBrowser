@@ -74,6 +74,7 @@ class MainWindow(QMainWindow):
                 self.central_widget.menu_item_selected_cb, search_all_action
             )
         )
+        actions_menu.addSeparator()
         actions_menu.addAction(search_all_action)
         actions_menu.addMenu(
             actions.menus.BuildSearchMenu(self.central_widget)

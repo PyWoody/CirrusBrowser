@@ -85,9 +85,7 @@ class TransfersTableModel(QSqlTableModel):
             elif column == self.db_priority_col:
                 if priority := super().data(index, role):
                     name = TransferPriority(priority).name
-                    return ' '.join(
-                        [i.capitalize() for i in name.split('_')]
-                    )
+                    return ' '.join(i.capitalize() for i in name.split('_'))
                 return 'Normal'
         elif role == Qt.TextAlignmentRole:
             if column in self.align_left_cols:
@@ -145,7 +143,7 @@ class TransfersTableModel(QSqlTableModel):
                 section -= self.num_custom_cols
             if data := super().headerData(section, orientation, role):
                 data = str(data).strip().replace('_', ' ')
-                return ' '.join([i.capitalize() for i in data.split(' ')])
+                return ' '.join(i.capitalize() for i in data.split(' '))
         return super().headerData(section, orientation, role)
 
     @Slot(QModelIndex)
@@ -178,7 +176,7 @@ class FinishedTableModel(QSqlTableModel):
         if orientation == Qt.Horizontal and role == Qt.DisplayRole:
             if data := super().headerData(section, orientation, role):
                 data = data.strip().replace('_', ' ')
-                return ' '.join([i.capitalize() for i in data.split(' ')])
+                return ' '.join(i.capitalize() for i in data.split(' '))
 
     def flags(self, index):
         if index.isValid():
