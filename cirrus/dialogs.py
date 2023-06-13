@@ -39,7 +39,7 @@ class ConfirmDeleteDialog(QDialog):
         self.dialog.rejected.connect(self.reject)
         self.layout = QVBoxLayout()
         message = QLabel(
-            ('Are you sure you want permanently'
+            ('Are you sure you want permanently '
              'delete the selected items?')
         )
         self.layout.addWidget(message)
