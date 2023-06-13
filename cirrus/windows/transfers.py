@@ -72,6 +72,7 @@ class TransfersWindow(QWidget):
         self.tabs.currentChanged.connect(self.select_current_tab_model)
         layout = QVBoxLayout()
         layout.addWidget(self.tabs)
+        layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(layout)
 
     @Slot(object, object, list)

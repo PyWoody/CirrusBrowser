@@ -17,6 +17,7 @@ from PySide6.QtCore import (
     Slot,
 )
 from PySide6.QtWidgets import (
+    QFrame,
     QMenu,
     QSplitter,
     QVBoxLayout,
@@ -61,6 +62,7 @@ class CentralWidgetWindow(QWidget):  # Terrible name
         self.splitter_listing_panels = []
         self.listings_view_splitter = QSplitter()
         self.listings_view_splitter.setChildrenCollapsible(False)
+        self.listings_view_splitter.setOpaqueResize(True)
 
         # Executor
         self.current_transfers = set()
@@ -206,6 +208,8 @@ class CentralWidgetWindow(QWidget):  # Terrible name
         )
         window.view.root_changed.connect(root_change_cb)
         self.listings_view_splitter.addWidget(window)
+        if (index := self.listings_view_splitter.indexOf(window)) > 0:
+            self.listings_view_splitter.insertWidget(index, utils.VLine())
         if not existing_panel:
             settings.append_panel(account)
 
@@ -213,6 +217,13 @@ class CentralWidgetWindow(QWidget):  # Terrible name
     def pop_splitter_panel(self):
         if len(self.splitter_listing_panels) > 1:
             window, account = self.splitter_listing_panels.pop()
+            if (index := self.listings_view_splitter.indexOf(window)) > 0:
+                if splitter := self.listings_view_splitter.widget(index - 1):
+                    if isinstance(splitter, utils.VLine):
+                        splitter.hide()
+                        splitter.setParent(None)
+                        splitter = None
+                        del splitter
             settings.pop_saved_panel()
             window.hide()
             window.setParent(None)
@@ -226,6 +237,15 @@ class CentralWidgetWindow(QWidget):  # Terrible name
         except IndexError:
             pass
         else:
+            index = self.listings_view_splitter.indexOf(window)
+            count = self.listings_view_splitter.count()
+            splitter_index = index + 1 if index + 1 != count else index - 1
+            if splitter := self.listings_view_splitter.widget(splitter_index):
+                if isinstance(splitter, utils.VLine):
+                    splitter.hide()
+                    splitter.setParent(None)
+                    splitter = None
+                    del splitter
             settings.remove_saved_panel(account)
             window.hide()
             window.setParent(None)

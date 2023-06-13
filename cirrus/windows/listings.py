@@ -74,6 +74,7 @@ class DigitOceanFileListingWindow(BaseListingWindow):
         layout.addLayout(self.location_bar)
         layout.addWidget(self.view)
         layout.addWidget(self.info_bar)
+        layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(layout)
 
         self.view.location_bar.set_model(self.history)
@@ -101,6 +102,7 @@ class LocalFileListingWindow(BaseListingWindow):
         layout.addLayout(self.location_bar_layout)
         layout.addWidget(self.view)
         layout.addWidget(self.info_bar)
+        layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(layout)
 
         self.view.location_bar.set_model(self.history)
@@ -130,6 +132,7 @@ class S3FileListingWindow(BaseListingWindow):
         layout.addLayout(self.location_bar)
         layout.addWidget(self.view)
         layout.addWidget(self.info_bar)
+        layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(layout)
 
         self.view.location_bar.set_model(self.history)
