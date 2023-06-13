@@ -104,6 +104,7 @@ class CentralWidgetWindow(QWidget):  # Terrible name
         views_layout = QSplitter()
         views_layout.setOrientation(Qt.Vertical)
         views_layout.addWidget(self.listings_view_splitter)
+        views_layout.addWidget(utils.HLine())
         views_layout.addWidget(self.transfers_window)
         layout.addWidget(views_layout)
         self.setLayout(layout)
