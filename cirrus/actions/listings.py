@@ -265,7 +265,7 @@ class CreateDirectoryRunnable(BaseRunnable):
                 user = items.new_user(self.parent.user, path)
                 item(user, is_dir=True).makedirs()
         self.signals.finished.emit(f'Testing - {self.parent.root} - FINISHED')
-        self.signals.callback.emit(self.parent().refresh)
+        self.signals.callback.emit(self.parent.refresh)
 
 
 class RecursiveAddItemsRunnable(BaseRunnable):
