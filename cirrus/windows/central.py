@@ -14,6 +14,7 @@ from PySide6.QtCore import (
     Qt,
     QTimer,
     QThreadPool,
+    Signal,
     Slot,
 )
 from PySide6.QtWidgets import (
@@ -26,6 +27,9 @@ from PySide6.QtWidgets import (
 
 
 class CentralWidgetWindow(QWidget):  # Terrible name
+
+    listing_panel_removed = Signal(int)
+    listing_panel_added = Signal(int)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -213,10 +217,11 @@ class CentralWidgetWindow(QWidget):  # Terrible name
             self.listings_view_splitter.insertWidget(index, utils.VLine())
         if not existing_panel:
             settings.append_panel(account)
+        self.listing_panel_added.emit(index)
 
     @Slot()
     def pop_splitter_panel(self):
-        if len(self.splitter_listing_panels) > 1:
+        if self.splitter_listing_panels:
             window, account = self.splitter_listing_panels.pop()
             if (index := self.listings_view_splitter.indexOf(window)) > 0:
                 if splitter := self.listings_view_splitter.widget(index - 1):
@@ -230,6 +235,7 @@ class CentralWidgetWindow(QWidget):  # Terrible name
             window.setParent(None)
             window = None
             del window
+            self.listing_panel_removed.emit(index)
 
     @Slot(int)
     def remove_splitter_panel(self, index):
@@ -252,6 +258,7 @@ class CentralWidgetWindow(QWidget):  # Terrible name
             window.setParent(None)
             window = None
             del window
+            self.listing_panel_removed.emit(index)
 
     @Slot(object)
     def time_delta_select(self, widget):

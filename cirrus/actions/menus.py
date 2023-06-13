@@ -77,8 +77,9 @@ class RemovePanelDefaultAction(QAction):
 
     @Slot()
     def update_tool_tip(self):
-        _, account = self.parent().splitter_listing_panels[-1]
-        self.setToolTip(f'Remove ({account["Type"]}) {account["Root"]}')
+        if panels := self.parent().splitter_listing_panels:
+            _, account = panels[-1]
+            self.setToolTip(f'Remove ({account["Type"]}) {account["Root"]}')
 
     @Slot(bool)
     def process(self, checked):

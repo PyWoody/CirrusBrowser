@@ -4,7 +4,7 @@ from functools import partial
 from .central import CentralWidgetWindow
 from cirrus import actions, database
 
-from PySide6.QtCore import QSize, Qt, Signal
+from PySide6.QtCore import QSize, Qt, Signal, Slot
 from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtWidgets import QMainWindow, QToolBar
 
@@ -44,12 +44,13 @@ class MainWindow(QMainWindow):
         tool_bar.setIconSize(QSize(24, 24))
         tool_bar.setMovable(False)
         tool_bar.setFloatable(False)
+        self.remove_panel_tool_btn = actions.menus.RemovePanelToolButton(
+            self.central_widget
+        )
         tool_bar.addWidget(
             actions.menus.AddPanelToolButton(self.central_widget)
         )
-        tool_bar.addWidget(
-            actions.menus.RemovePanelToolButton(self.central_widget)
-        )
+        tool_bar.addWidget(self.remove_panel_tool_btn)
         tool_bar.addSeparator()
         tool_bar.addAction(toggle_transfers_action)
         tool_bar.addAction(toggle_transfers_panel_action)
@@ -85,6 +86,13 @@ class MainWindow(QMainWindow):
         edit_menu = menu.addMenu('&Edit')
         help_menu = menu.addMenu('&Help')
 
+        self.central_widget.listing_panel_added.connect(
+            self.track_add_panel_action
+        )
+        self.central_widget.listing_panel_removed.connect(
+            self.track_remove_panel_action
+        )
+
         self.resize(900, 700)
 
     def keyPressEvent(self, event):
@@ -118,3 +126,14 @@ class MainWindow(QMainWindow):
         finally:
             super().closeEvent(event)
             self.closed.emit()
+
+    @Slot(int)
+    def track_add_panel_action(self, index):
+        if not self.remove_panel_tool_btn.isEnabled():
+            self.remove_panel_tool_btn.setEnabled(True)
+
+    @Slot(int)
+    def track_remove_panel_action(self, index):
+        if not self.central_widget.splitter_listing_panels:
+            if self.remove_panel_tool_btn.isEnabled():
+                self.remove_panel_tool_btn.setEnabled(False)
