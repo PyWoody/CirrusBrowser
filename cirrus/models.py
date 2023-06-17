@@ -139,7 +139,10 @@ class TransfersTableModel(QSqlQueryModel):
             query.addBindValue(value)
             query.addBindValue(pk)
             if query.exec():
-                con.commit()
+                if not con.commit():
+                    err_msg = query.lastError().databaseText()
+                    critical_msg('setData', err_msg)
+                    return False
                 return True
             else:
                 con.rollback()
