@@ -119,8 +119,8 @@ class TransfersDatabaseTreeView(QTreeView):
         model = self.model()
         selection_model = self.selectionModel()
         group = []
-        for row in range(model.rowCount()):
-            index = model.index(row, 0)
+        for row in range(model.total_row_count()):
+            index = model.createIndex(row, 0)
             if index.isValid() and not selection_model.isSelected(index):
                 self.selected_indexes.add(index)
                 group.append(index)

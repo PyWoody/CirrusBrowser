@@ -11,7 +11,7 @@ from cirrus.views.transfers import (
     TransfersDatabaseTreeView,
 )
 
-from PySide6.QtCore import Slot, Qt, QThreadPool, QTimer
+from PySide6.QtCore import Slot, QThreadPool, QTimer
 from PySide6.QtSql import QSqlDatabase
 from PySide6.QtWidgets import QMenu, QTabWidget, QVBoxLayout, QWidget
 
@@ -25,20 +25,31 @@ class TransfersWindow(QWidget):
         self.rows_to_be_popped = []
         self.last_select = utils.date.epoch()
 
+        transfer_con = QSqlDatabase.database('transfer_con')
+        if not transfer_con.open():
+            raise exceptions.DatabaseClosedException
         con = QSqlDatabase.database('con')
         if not con.open():
             raise exceptions.DatabaseClosedException
         self.transfers = TransfersDatabaseTreeView()
-        model = TransfersTableModel(db=con)
-        model.insertColumn(3)
-        model.insertColumn(4)
-        model.setTable('transfers')
-        model.setFilter(
-            f'status != {TransferStatus.ERROR.value} '
-            f'AND status != {TransferStatus.COMPLETED.value}'
-        )
-        model.setSort(0, Qt.AscendingOrder)
-        model.select()
+        # TODO: Set sort for pk, status, priority
+        query = '''
+            SELECT
+                *
+            FROM
+                transfers
+            WHERE
+                status != 3 AND status != 4
+            ORDER BY
+                status DESC,
+                priority DESC,
+                pk ASC
+        '''
+        model = TransfersTableModel(query=query, con_name='transfer_con')
+        model.setQuery(query, transfer_con)
+        # model.insertColumn(3)
+        # model.insertColumn(4)
+        # model.setSort(0, Qt.AscendingOrder)
         self.transfers.setModel(model)
         self.transfers.setup_header()
         self.transfers.context_selections.connect(self.transfers_context_menu)

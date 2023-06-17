@@ -2,7 +2,8 @@ import logging
 import threading
 import os
 
-from cirrus import utils
+from cirrus import exceptions, utils
+from cirrus.database import critical_msg
 from cirrus.items import DigitalOceanItem, S3Item
 from cirrus.statuses import TransferPriority
 
@@ -15,11 +16,220 @@ from PySide6.QtCore import (
     Slot,
 )
 from PySide6.QtGui import QStandardItemModel, QStandardItem
-from PySide6.QtSql import QSqlTableModel
+from PySide6.QtSql import (
+    QSqlDatabase,
+    QSqlQuery,
+    QSqlQueryModel,
+    QSqlTableModel,
+)
 from PySide6.QtWidgets import QFileSystemModel
 
 
-class TransfersTableModel(QSqlTableModel):
+class TransfersTableModel(QSqlQueryModel):
+
+    def __init__(self, parent=None, con_name=None, query=''):
+        super().__init__(parent)
+        self.con_name = con_name
+        self.query = query
+        self.last_invalidate = utils.date.epoch()
+        self.num_custom_cols = 2
+        self.progress_bar_col = 3
+        self.progress_rate_col = 4
+        self.db_size_col = 5
+        self.db_priority_col = 6
+        self.db_status_col = 7
+        self.align_left_cols = {1, 2}
+        # TODO: connect to any row add slots to reset this
+        self.transfer_items = dict()
+        self.current_row = 0
+        self.max_num_rows = 0
+        self.row_count = 0
+
+    def total_row_count(self):
+        con = QSqlDatabase.database(self.con_name)
+        if not con.open():
+            raise exceptions.DatabaseClosedException
+        query = QSqlQuery(self.query, con)
+        if query.exec():
+            if query.last():
+                return int(query.at() + 1)
+        return 0
+
+    def remove_all_rows(self):
+        con = QSqlDatabase.database(self.con_name)
+        if not con.open():
+            raise exceptions.DatabaseClosedException
+        con.transaction()
+        query = QSqlQuery('DELETE FROM transfers WHERE status < 3', con)
+        if not query.exec():
+            con.rollback()
+            err_msg = query.lastError().databaseText()
+            critical_msg('remove_rows', err_msg)
+            return False
+        if not con.commit():
+            con.rollback()
+            err_msg = query.lastError().databaseText()
+            critical_msg('remove_rows (commit)', err_msg)
+            return False
+        return True
+
+    def removeRow(self, row, parent=QModelIndex()):
+        index = self.createIndex(row, 0)
+        if not index.isValid():
+            return False
+        pk = index.data()
+        con = QSqlDatabase.database(self.con_name)
+        if not con.open():
+            raise exceptions.DatabaseClosedException
+        con.transaction()
+        query = QSqlQuery(con)
+        query.prepare('DELETE FROM transfers WHERE pk = (?)')
+        query.addBindValue(pk)
+        if query.exec():
+            self.beginRemoveRows(parent, row, row)
+            con.commit()
+            self.endRemoveRows()
+            return True
+        con.rollback()
+        err_msg = query.lastError().databaseText()
+        critical_msg('removeRow', err_msg)
+        return False
+
+    def setData(self, index, value, role=Qt.EditRole):
+        if role == Qt.EditRole and index.isValid():
+            con = QSqlDatabase.database(self.con_name)
+            if not con.open():
+                raise exceptions.DatabaseClosedException
+            pk = index.siblingAtColumn(0).data()
+            column = index.column()
+            if column == 1:
+                col_name = 'status'
+            elif column == 2:
+                col_name = 'destination'
+            elif column == 3:
+                col_name = 'size'
+            elif column == 4:
+                col_name = 'priority'
+            elif column == 5:
+                col_name = 'status'
+            elif column == 6:
+                col_name = 'start_time'
+            elif column == 7:
+                col_name = 'end_time'
+            elif column == 8:
+                col_name = 'error_message'
+            elif column == 9:
+                col_name = 'source_type'
+            elif column == 10:
+                col_name = 'destination_type'
+            else:
+                logging.warn(f'Could not find column for {index!r} ({value})')
+                return False
+            con.transaction()
+            query = QSqlQuery(con)
+            query.prepare('''
+                UPDATE
+                    transfers
+                SET
+                    (?) = (?)
+                WHERE
+                    pk = (?)
+            ''')
+            query.addBindValue(col_name)
+            query.addBindValue(value)
+            query.addBindValue(pk)
+            if query.exec():
+                con.commit()
+                return True
+            else:
+                con.rollback()
+                err_msg = query.lastError().databaseText()
+                critical_msg('setData', err_msg)
+        return False
+
+    def setQuery(self, *args, **kwargs):
+        response = super().setQuery(*args, **kwargs)
+        self.row_count = self.total_row_count()
+        return response
+
+    def select(self, *args, **kwargs):
+        con = QSqlDatabase.database(self.con_name)
+        if not con.open():
+            raise exceptions.DatabaseClosedException
+        self.setQuery(self.query, con)
+        self.row_count = self.total_row_count()
+
+    def selectRow(self, *args, **kwargs):
+        return False
+
+    def data(self, index, role=Qt.DisplayRole):
+        if not index.isValid():
+            return
+        column = index.column()
+        if column > self.num_custom_cols:
+            index = self.createIndex(
+                index.row(), column - self.num_custom_cols
+            )
+        if role == Qt.DisplayRole:
+            pk = super().data(index.siblingAtColumn(0), role)
+            if column == 0:
+                return pk
+            elif column == self.progress_bar_col:
+                if item := self.transfer_items.get(pk):
+                    return item.progress
+                return 0
+            elif column == self.progress_rate_col:
+                if item := self.transfer_items.get(pk):
+                    return item.rate
+                return
+            elif column == self.db_size_col:
+                if size := super().data(index, role):
+                    return f'{size:,}'
+                elif pk:
+                    return 0
+                return
+            elif column == self.db_priority_col:
+                if priority := super().data(index, role):
+                    name = TransferPriority(priority).name
+                    return ' '.join(i.capitalize() for i in name.split('_'))
+                return 'Normal'
+        elif role == Qt.TextAlignmentRole:
+            if column in self.align_left_cols:
+                return Qt.AlignLeft
+            elif column == self.db_priority_col:
+                return Qt.AlignCenter
+            return Qt.AlignRight
+        return super().data(index, role)
+
+    def headerData(self, section, orientation, role=Qt.DisplayRole):
+        """
+            [ H ] Pk
+            Progress
+            Rate
+            Status
+            Source
+            Destination
+            Size
+            Priority
+            [ H ] Status
+            [ H ] Start Time
+            [ H ] End Time
+            [ H ] Error Mesage
+        """
+        if orientation == Qt.Horizontal and role == Qt.DisplayRole:
+            if section == self.progress_bar_col:
+                return 'Progress'
+            elif section == self.progress_rate_col:
+                return 'Rate'
+            if section > self.num_custom_cols:
+                section -= self.num_custom_cols
+            if data := super().headerData(section, orientation, role):
+                data = str(data).strip().replace('_', ' ')
+                return ' '.join(i.capitalize() for i in data.split(' '))
+        return super().headerData(section, orientation, role)
+
+
+class _TransfersTableModel(QSqlTableModel):
 
     def __init__(self, *, db, parent=None):
         super().__init__(db=db, parent=parent)

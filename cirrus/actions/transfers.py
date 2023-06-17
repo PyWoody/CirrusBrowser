@@ -36,10 +36,13 @@ class DropRowsRunnable(BaseRunnable):
         # TODO: Items could still be in the database.hot_queue
         self.parent.clearSelection()
         model = self.parent.model()
-        for index in self.indexes:
-            self.signals.ss_callback.emit(
-                partial(model.removeRow, index.row())
-            )
+        if len(self.indexes) == model.row_count:
+            self.signals.ss_callback.emit(model.remove_all_rows)
+        else:
+            for index in self.indexes:
+                self.signals.ss_callback.emit(
+                    partial(model.removeRow, index.row())
+                )
         self.signals.ss_callback.emit(self.signals.select.emit)
 
 

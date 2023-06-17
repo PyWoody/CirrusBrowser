@@ -21,12 +21,13 @@ logging.basicConfig(
 
 def create_connection():
     database.setup()
-    # con_names = ['con', 'transfer_con', 'error_con', 'completed_con']
-    con = QSqlDatabase.addDatabase('QSQLITE', 'con')
-    con.setDatabaseName(settings.DATABASE)
-    if not con.open():
-        database.critical_msg('creating', con.lastError().databaseText())
-        return False
+    con_names = ['con', 'transfer_con', 'error_con', 'completed_con']
+    for con_name in con_names:
+        con = QSqlDatabase.addDatabase('QSQLITE', con_name)
+        con.setDatabaseName(settings.DATABASE)
+        if not con.open():
+            database.critical_msg('creating', con.lastError().databaseText())
+            return False
     return True
 
 
