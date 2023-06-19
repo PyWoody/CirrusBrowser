@@ -2,8 +2,7 @@ import logging
 import threading
 import os
 
-from cirrus import exceptions, utils
-from cirrus.database import critical_msg
+from cirrus import database, exceptions, utils
 from cirrus.items import DigitalOceanItem, S3Item
 from cirrus.statuses import TransferPriority
 
@@ -46,7 +45,8 @@ class TransfersTableModel(QSqlQueryModel):
     def total_row_count(self):
         con = QSqlDatabase.database(self.con_name)
         if not con.open():
-            raise exceptions.DatabaseClosedException
+            database.critical_msg('total_row-count', err_msg)
+            return 0
         query = QSqlQuery(self.query, con)
         if query.exec():
             if query.last():
@@ -56,18 +56,19 @@ class TransfersTableModel(QSqlQueryModel):
     def remove_all_rows(self):
         con = QSqlDatabase.database(self.con_name)
         if not con.open():
-            raise exceptions.DatabaseClosedException
+            database.critical_msg('remove_all_rows', err_msg)
+            return False
         con.transaction()
         query = QSqlQuery('DELETE FROM transfers WHERE status < 3', con)
         if not query.exec():
             con.rollback()
             err_msg = query.lastError().databaseText()
-            critical_msg('remove_rows', err_msg)
+            database.critical_msg('remove_rows', err_msg)
             return False
         if not con.commit():
             con.rollback()
             err_msg = query.lastError().databaseText()
-            critical_msg('remove_rows (commit)', err_msg)
+            database.critical_msg('remove_rows (commit)', err_msg)
             return False
         return True
 
@@ -78,7 +79,8 @@ class TransfersTableModel(QSqlQueryModel):
         pk = index.data()
         con = QSqlDatabase.database(self.con_name)
         if not con.open():
-            raise exceptions.DatabaseClosedException
+            database.critical_msg('removeRow', err_msg)
+            return False
         con.transaction()
         query = QSqlQuery(con)
         query.prepare('DELETE FROM transfers WHERE pk = (?)')
@@ -90,18 +92,19 @@ class TransfersTableModel(QSqlQueryModel):
             return True
         con.rollback()
         err_msg = query.lastError().databaseText()
-        critical_msg('removeRow', err_msg)
+        database.critical_msg('removeRow', err_msg)
         return False
 
     def setData(self, index, value, role=Qt.EditRole):
         if role == Qt.EditRole and index.isValid():
             con = QSqlDatabase.database(self.con_name)
             if not con.open():
-                raise exceptions.DatabaseClosedException
+                database.critical_msg('setData', err_msg)
+                return False
             pk = index.siblingAtColumn(0).data()
             column = index.column()
             if column == 1:
-                col_name = 'status'
+                col_name = 'source'
             elif column == 2:
                 col_name = 'destination'
             elif column == 3:
@@ -139,13 +142,13 @@ class TransfersTableModel(QSqlQueryModel):
             if query.exec():
                 if not con.commit():
                     err_msg = query.lastError().databaseText()
-                    critical_msg('setData', err_msg)
+                    database.critical_msg('setData', err_msg)
                     return False
                 return True
             else:
                 con.rollback()
                 err_msg = query.lastError().databaseText()
-                critical_msg('setData', err_msg)
+                database.critical_msg('setData', err_msg)
         return False
 
     def setQuery(self, *args, **kwargs):
@@ -156,11 +159,15 @@ class TransfersTableModel(QSqlQueryModel):
     def select(self, *args, **kwargs):
         con = QSqlDatabase.database(self.con_name)
         if not con.open():
-            raise exceptions.DatabaseClosedException
+            database.critical_msg('select', err_msg)
+            return False
         self.setQuery(self.query, con)
         self.row_count = self.total_row_count()
+        self.last_invalidate = utils.date.now()
+        return True
 
-    def selectRow(self, *args, **kwargs):
+    def selectRow(self, row):
+        # NOTE: Temporary function. Will be removed.
         return False
 
     def data(self, index, role=Qt.DisplayRole):
