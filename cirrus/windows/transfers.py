@@ -22,7 +22,6 @@ class TransfersWindow(QWidget):
         super().__init__(parent)
         self.database_queue = database_queue
         self.threadpool = QThreadPool()
-        self.rows_to_be_popped = []
         self.last_select = utils.date.epoch()
 
         transfer_con = QSqlDatabase.database('transfer_con')
@@ -39,7 +38,7 @@ class TransfersWindow(QWidget):
             FROM
                 transfers
             WHERE
-                status != 3 AND status != 4
+                status < 3
             ORDER BY
                 status DESC,
                 priority DESC,
@@ -122,28 +121,25 @@ class TransfersWindow(QWidget):
 
     @Slot(list)
     def select_completed_rows(self, transfer_items):
-        self.rows_to_be_popped.extend(transfer_items)
         widget = self.tabs.currentWidget()
         model = widget.model()
         if (utils.date.now() - model.last_invalidate).seconds > 3:
             if widget is self.transfers:
-                if model.canFetchMore():
-                    model.fetchMore()
+                model.select()
             elif widget is self.errors:
-                for item in transfer_items:
-                    if item.status == TransferStatus.ERROR:
-                        model.select()
-                        break
+                if any(
+                    i.status == TransferStatus.ERROR for i in transfer_items
+                ):
+                    model.select()
             elif widget is self.results:
-                for item in transfer_items:
-                    if item.status == TransferStatus.COMPLETED:
-                        model.select()
-                        break
-            for item in self.rows_to_be_popped:
-                QTimer.singleShot(
-                    0, partial(self.remove_transfer_item, item)
-                )
-            self.rows_to_be_popped.clear()
+                if any(
+                    i.status == TransferStatus.COMPLETED for i in transfer_items
+                ):
+                    model.select()
+        for item in transfer_items:
+            QTimer.singleShot(
+                0, partial(self.remove_transfer_item, item)
+            )
 
     @Slot(TransferItem)
     def attach_transfer_item(self, item):
