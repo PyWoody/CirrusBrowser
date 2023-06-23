@@ -112,12 +112,12 @@ class TransfersWindow(QWidget):
         self.transfers.model().selectRow(item.row)
 
     @Slot(list)
-    def select_started_rows(self, transfer_items):
+    def select_started_rows(self, transfer_items, start_col=8):
         widget = self.tabs.currentWidget()
         if widget is self.transfers:
             model = widget.model()
             for item in transfer_items:
-                QTimer.singleShot(0, partial(model.selectRow, item.row))
+                model.set_data_by_pk(item.pk, start_col, item.started)
 
     @Slot(list)
     def select_completed_rows(self, transfer_items):
