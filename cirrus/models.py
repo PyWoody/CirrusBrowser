@@ -113,26 +113,15 @@ class TransfersTableModel(QSqlQueryModel):
                 return False
             pk = index.siblingAtColumn(0).data()
             column = index.column()
+            # NOTE: Double-check columns; find missing
             if column == 1:
                 col_name = 'source'
             elif column == 2:
                 col_name = 'destination'
-            elif column == 3:
-                col_name = 'size'
-            elif column == 4:
-                col_name = 'priority'
             elif column == 5:
-                col_name = 'status'
-            elif column == 6:
-                col_name = 'start_time'
-            elif column == 7:
-                col_name = 'end_time'
+                col_name = 'size'
             elif column == 8:
-                col_name = 'error_message'
-            elif column == 9:
-                col_name = 'source_type'
-            elif column == 10:
-                col_name = 'destination_type'
+                col_name = 'start_time'
             else:
                 logging.warn(f'Could not find column for {index!r} ({value})')
                 return False
@@ -154,6 +143,7 @@ class TransfersTableModel(QSqlQueryModel):
                     err_msg = query.lastError().databaseText()
                     database.critical_msg('setData', err_msg)
                     return False
+                self.dataChanged.emit(index, index, [Qt.DisplayRole])
                 return True
             else:
                 con.rollback()
@@ -241,7 +231,10 @@ class TransfersTableModel(QSqlQueryModel):
                 return 'Rate'
             if section > self.num_custom_cols:
                 section -= self.num_custom_cols
+            else:
+                print(section)
             if data := super().headerData(section, orientation, role):
+                print(data)
                 data = str(data).strip().replace('_', ' ')
                 return ' '.join(i.capitalize() for i in data.split(' '))
         return super().headerData(section, orientation, role)
