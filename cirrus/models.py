@@ -95,6 +95,16 @@ class TransfersTableModel(QSqlQueryModel):
         database.critical_msg('removeRow', err_msg)
         return False
 
+    def set_data_by_pk(self, pk, column, value, role=Qt.EditRole):
+        index = self.index(0, 0)
+        results = self.match(
+            index, Qt.DisplayRole, pk, hits=1, flags=Qt.MatchExactly
+        )
+        if results and results[0].isValid():
+            match_index = self.index(results[0].row(), column)
+            return self.setData(match_index, value, role)
+        return False
+
     def setData(self, index, value, role=Qt.EditRole):
         if role == Qt.EditRole and index.isValid():
             con = QSqlDatabase.database(self.con_name)
@@ -128,19 +138,19 @@ class TransfersTableModel(QSqlQueryModel):
                 return False
             con.transaction()
             query = QSqlQuery(con)
-            query.prepare('''
+            query.prepare(f'''
                 UPDATE
                     transfers
                 SET
-                    (?) = (?)
+                    {col_name} = (?)
                 WHERE
                     pk = (?)
             ''')
-            query.addBindValue(col_name)
             query.addBindValue(value)
             query.addBindValue(pk)
             if query.exec():
                 if not con.commit():
+                    con.rollback()
                     err_msg = query.lastError().databaseText()
                     database.critical_msg('setData', err_msg)
                     return False
@@ -166,7 +176,7 @@ class TransfersTableModel(QSqlQueryModel):
         self.last_invalidate = utils.date.now()
         return True
 
-    def selectRow(self, row):
+    def selectRow(self, *args, **kwargs):
         # NOTE: Temporary function. Will be removed.
         return False
 
