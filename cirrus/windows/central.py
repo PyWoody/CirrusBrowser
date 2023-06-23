@@ -348,6 +348,7 @@ class CentralWidgetWindow(QWidget):  # Terrible name
             self.__started_transfers_to_update.clear()
 
     def batch_completed_db_update(self):
+        # TODO: Manual calls to the DB shoul be done via the model's setData
         output = []
         if self.__error_transfers_to_update:
             output.extend(self.__error_transfers_to_update)
