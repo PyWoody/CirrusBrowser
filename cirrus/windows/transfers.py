@@ -3,7 +3,11 @@ from functools import partial
 from cirrus import exceptions, utils, menus
 
 from cirrus.items import TransferItem
-from cirrus.models import FinishedTableModel, TransfersTableModel
+from cirrus.models import (
+    CompletedTableModel,
+    ErrorsTableModel,
+    TransfersTableModel,
+)
 from cirrus.statuses import TransferStatus
 from cirrus.views.transfers import (
     ErrorsDatabaseTreeView,
@@ -24,49 +28,24 @@ class TransfersWindow(QWidget):
         self.threadpool = QThreadPool()
         self.last_select = utils.date.epoch()
 
-        transfer_con = QSqlDatabase.database('transfer_con')
-        if not transfer_con.open():
-            raise exceptions.DatabaseClosedException
         con = QSqlDatabase.database('con')
         if not con.open():
             raise exceptions.DatabaseClosedException
         self.transfers = TransfersDatabaseTreeView()
-        # TODO: Set sort for pk, status, priority
-        query = '''
-            SELECT
-                *
-            FROM
-                transfers
-            WHERE
-                status < 3
-            ORDER BY
-                status DESC,
-                priority DESC,
-                pk ASC
-        '''
-        model = TransfersTableModel(query=query, con_name='transfer_con')
-        model.setQuery(query, transfer_con)
-        # model.insertColumn(3)
-        # model.insertColumn(4)
-        # model.setSort(0, Qt.AscendingOrder)
+        model = TransfersTableModel(con_name='transfer_con')
+        model.select()
         self.transfers.setModel(model)
         self.transfers.setup_header()
         self.transfers.context_selections.connect(self.transfers_context_menu)
 
         self.errors = ErrorsDatabaseTreeView()
-        # model = ErrorsTableModel(db=con)
-        model = FinishedTableModel(db=con)
-        model.setTable('transfers')
-        model.setFilter(f'status = {TransferStatus.ERROR.value}')
+        model = ErrorsTableModel(con_name='error_con')
         model.select()
         self.errors.setModel(model)
         self.errors.setup_header()
 
         self.results = ResultsDatabaseTreeView()
-        # model = CompletedTableModel(db=con)
-        model = FinishedTableModel(db=con)
-        model.setTable('transfers')
-        model.setFilter(f'status = {TransferStatus.COMPLETED.value}')
+        model = CompletedTableModel(con_name='completed_con')
         model.select()
         self.results.setModel(model)
         self.results.setup_header()

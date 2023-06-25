@@ -2,9 +2,9 @@ import logging
 import threading
 import os
 
-from cirrus import database, exceptions, utils
+from cirrus import database, utils
 from cirrus.items import DigitalOceanItem, S3Item
-from cirrus.statuses import TransferPriority
+from cirrus.statuses import TransferPriority, TransferStatus
 
 from PySide6.QtCore import (
     QAbstractListModel,
@@ -19,17 +19,27 @@ from PySide6.QtSql import (
     QSqlDatabase,
     QSqlQuery,
     QSqlQueryModel,
-    QSqlTableModel,
 )
 from PySide6.QtWidgets import QFileSystemModel
 
 
 class TransfersTableModel(QSqlQueryModel):
 
-    def __init__(self, parent=None, con_name=None, query=''):
+    def __init__(self, *, con_name, parent=None):
         super().__init__(parent)
         self.con_name = con_name
-        self.query = query
+        self.query = f'''
+            SELECT
+                *
+            FROM
+                transfers
+            WHERE
+                status < {TransferStatus.ERROR.value}
+            ORDER BY
+                status DESC,
+                priority DESC,
+                pk ASC
+        '''
         self.last_invalidate = utils.date.epoch()
         self.num_custom_cols = 2
         self.progress_bar_col = 3
@@ -45,6 +55,7 @@ class TransfersTableModel(QSqlQueryModel):
     def total_row_count(self):
         con = QSqlDatabase.database(self.con_name)
         if not con.open():
+            err_msg = con.lastError().databaseText()
             database.critical_msg('total_row-count', err_msg)
             return 0
         query = QSqlQuery(self.query, con)
@@ -56,6 +67,7 @@ class TransfersTableModel(QSqlQueryModel):
     def remove_all_rows(self):
         con = QSqlDatabase.database(self.con_name)
         if not con.open():
+            err_msg = con.lastError().databaseText()
             database.critical_msg('remove_all_rows', err_msg)
             return False
         con.transaction()
@@ -79,6 +91,7 @@ class TransfersTableModel(QSqlQueryModel):
         pk = index.data()
         con = QSqlDatabase.database(self.con_name)
         if not con.open():
+            err_msg = con.lastError().databaseText()
             database.critical_msg('removeRow', err_msg)
             return False
         con.transaction()
@@ -109,6 +122,7 @@ class TransfersTableModel(QSqlQueryModel):
         if role == Qt.EditRole and index.isValid():
             con = QSqlDatabase.database(self.con_name)
             if not con.open():
+                err_msg = con.lastError().databaseText()
                 database.critical_msg('setData', err_msg)
                 return False
             pk = index.siblingAtColumn(0).data()
@@ -159,6 +173,7 @@ class TransfersTableModel(QSqlQueryModel):
     def select(self, *args, **kwargs):
         con = QSqlDatabase.database(self.con_name)
         if not con.open():
+            err_msg = con.lastError().databaseText()
             database.critical_msg('select', err_msg)
             return False
         self.setQuery(self.query, con)
@@ -169,6 +184,10 @@ class TransfersTableModel(QSqlQueryModel):
     def selectRow(self, *args, **kwargs):
         # NOTE: Temporary function. Will be removed.
         return False
+
+    def delta_select(self, *, delta=2):
+        if (utils.date.now() - self.last_invalidate).seconds >= delta:
+            return self.select()
 
     def data(self, index, role=Qt.DisplayRole):
         if not index.isValid():
@@ -231,24 +250,343 @@ class TransfersTableModel(QSqlQueryModel):
                 return 'Rate'
             if section > self.num_custom_cols:
                 section -= self.num_custom_cols
-            else:
-                print(section)
             if data := super().headerData(section, orientation, role):
-                print(data)
                 data = str(data).strip().replace('_', ' ')
                 return ' '.join(i.capitalize() for i in data.split(' '))
         return super().headerData(section, orientation, role)
 
+    def flags(self, index):
+        if index.isValid():
+            return Qt.ItemIsSelectable | Qt.ItemIsEnabled
+        return Qt.NoItemFlags
 
-class FinishedTableModel(QSqlTableModel):
 
-    def __init__(self, *, db, parent=None):
-        super().__init__(db=db, parent=parent)
+class ErrorsTableModel(QSqlQueryModel):
+
+    def __init__(self, *, con_name, parent=None):
+        super().__init__(parent)
+        self.con_name = con_name
+        self.query = f'''
+            SELECT
+                *
+            FROM
+                transfers
+            WHERE
+                status = {TransferStatus.ERROR.value}
+        '''
         self.last_invalidate = utils.date.epoch()
+        self.row_count = 0
+
+    def total_row_count(self):
+        con = QSqlDatabase.database(self.con_name)
+        if not con.open():
+            err_msg = con.lastError().databaseText()
+            database.critical_msg('total_row-count', err_msg)
+            return 0
+        query = QSqlQuery(self.query, con)
+        if query.exec():
+            if query.last():
+                return int(query.at() + 1)
+        return 0
+
+    def remove_all_rows(self):
+        con = QSqlDatabase.database(self.con_name)
+        if not con.open():
+            err_msg = con.lastError().databaseText()
+            database.critical_msg('remove_all_rows', err_msg)
+            return False
+        con.transaction()
+        query = QSqlQuery(f'''
+            DELETE FROM
+                transfers
+            WHERE
+                status = {TranserStatus.ERROR.value}
+            ''',
+            con
+        )
+        if not query.exec():
+            con.rollback()
+            err_msg = query.lastError().databaseText()
+            database.critical_msg('remove_rows', err_msg)
+            return False
+        if not con.commit():
+            con.rollback()
+            err_msg = query.lastError().databaseText()
+            database.critical_msg('remove_rows (commit)', err_msg)
+            return False
+        return True
+
+    def removeRow(self, row, parent=QModelIndex()):
+        index = self.createIndex(row, 0)
+        if not index.isValid():
+            return False
+        pk = index.data()
+        con = QSqlDatabase.database(self.con_name)
+        if not con.open():
+            err_msg = con.lastError().databaseText()
+            database.critical_msg('removeRow', err_msg)
+            return False
+        con.transaction()
+        query = QSqlQuery(con)
+        query.prepare('DELETE FROM transfers WHERE pk = (?)')
+        query.addBindValue(pk)
+        if query.exec():
+            self.beginRemoveRows(parent, row, row)
+            con.commit()
+            self.endRemoveRows()
+            return True
+        con.rollback()
+        err_msg = query.lastError().databaseText()
+        database.critical_msg('removeRow', err_msg)
+        return False
+
+    def set_data_by_pk(self, pk, column, value, role=Qt.EditRole):
+        index = self.index(0, 0)
+        results = self.match(
+            index, Qt.DisplayRole, pk, hits=1, flags=Qt.MatchExactly
+        )
+        if results and results[0].isValid():
+            match_index = self.index(results[0].row(), column)
+            return self.setData(match_index, value, role)
+        return False
+
+    def setData(self, index, value, role=Qt.EditRole):
+        raise NotImplementedError
+        if role == Qt.EditRole and index.isValid():
+            con = QSqlDatabase.database(self.con_name)
+            if not con.open():
+                err_msg = con.lastError().databaseText()
+                database.critical_msg('setData', err_msg)
+                return False
+            pk = index.siblingAtColumn(0).data()
+            column = index.column()
+            # NOTE: Double-check columns; find missing
+            if column == 1:
+                col_name = 'source'
+            elif column == 2:
+                col_name = 'destination'
+            elif column == 5:
+                col_name = 'size'
+            elif column == 8:
+                col_name = 'start_time'
+            else:
+                logging.warn(f'Could not find column for {index!r} ({value})')
+                return False
+            con.transaction()
+            query = QSqlQuery(con)
+            query.prepare(f'''
+                UPDATE
+                    transfers
+                SET
+                    {col_name} = (?)
+                WHERE
+                    pk = (?)
+            ''')
+            query.addBindValue(value)
+            query.addBindValue(pk)
+            if query.exec():
+                if not con.commit():
+                    con.rollback()
+                    err_msg = query.lastError().databaseText()
+                    database.critical_msg('setData', err_msg)
+                    return False
+                self.dataChanged.emit(index, index, [Qt.DisplayRole])
+                return True
+            else:
+                con.rollback()
+                err_msg = query.lastError().databaseText()
+                database.critical_msg('setData', err_msg)
+        return False
+
+    def setQuery(self, *args, **kwargs):
+        response = super().setQuery(*args, **kwargs)
+        self.row_count = self.total_row_count()
+        return response
 
     def select(self, *args, **kwargs):
+        con = QSqlDatabase.database(self.con_name)
+        if not con.open():
+            err_msg = con.lastError().databaseText()
+            database.critical_msg('select', err_msg)
+            return False
+        self.setQuery(self.query, con)
+        self.row_count = self.total_row_count()
         self.last_invalidate = utils.date.now()
-        return super().select()
+        return True
+
+    def delta_select(self, *, delta=2):
+        if (utils.date.now() - self.last_invalidate).seconds >= delta:
+            return self.select()
+
+    def data(self, index, role=Qt.DisplayRole):
+        if not index.isValid() or role != Qt.DisplayRole:
+            return
+        return super().data(index, role)
+
+    def headerData(self, section, orientation, role=Qt.DisplayRole):
+        if orientation == Qt.Horizontal and role == Qt.DisplayRole:
+            if data := super().headerData(section, orientation, role):
+                data = data.strip().replace('_', ' ')
+                return ' '.join(i.capitalize() for i in data.split(' '))
+
+    def flags(self, index):
+        if index.isValid():
+            return Qt.ItemIsSelectable | Qt.ItemIsEnabled
+        return Qt.NoItemFlags
+
+
+class CompletedTableModel(QSqlQueryModel):
+
+    def __init__(self, *, parent=None, con_name=None):
+        super().__init__(parent)
+        self.con_name = con_name
+        self.query = f'''
+            SELECT
+                *
+            FROM
+                transfers
+            WHERE
+                status = {TransferStatus.COMPLETED.value}
+        '''
+        self.last_invalidate = utils.date.epoch()
+        self.row_count = 0
+
+    def total_row_count(self):
+        con = QSqlDatabase.database(self.con_name)
+        if not con.open():
+            err_msg = con.lastError().databaseText()
+            database.critical_msg('total_row-count', err_msg)
+            return 0
+        query = QSqlQuery(self.query, con)
+        if query.exec():
+            if query.last():
+                return int(query.at() + 1)
+        return 0
+
+    def remove_all_rows(self):
+        con = QSqlDatabase.database(self.con_name)
+        if not con.open():
+            err_msg = con.lastError().databaseText()
+            database.critical_msg('remove_all_rows', err_msg)
+            return False
+        con.transaction()
+        query = QSqlQuery('''
+            DELETE FROM
+                transfers
+            WHERE
+                status {TransferStatus.COMPLETED.value}
+            ''',
+            con
+        )
+        if not query.exec():
+            con.rollback()
+            err_msg = query.lastError().databaseText()
+            database.critical_msg('remove_rows', err_msg)
+            return False
+        if not con.commit():
+            con.rollback()
+            err_msg = query.lastError().databaseText()
+            database.critical_msg('remove_rows (commit)', err_msg)
+            return False
+        return True
+
+    def removeRow(self, row, parent=QModelIndex()):
+        index = self.createIndex(row, 0)
+        if not index.isValid():
+            return False
+        pk = index.data()
+        con = QSqlDatabase.database(self.con_name)
+        if not con.open():
+            err_msg = con.lastError().databaseText()
+            database.critical_msg('removeRow', err_msg)
+            return False
+        con.transaction()
+        query = QSqlQuery(con)
+        query.prepare('DELETE FROM transfers WHERE pk = (?)')
+        query.addBindValue(pk)
+        if query.exec():
+            self.beginRemoveRows(parent, row, row)
+            con.commit()
+            self.endRemoveRows()
+            return True
+        con.rollback()
+        err_msg = query.lastError().databaseText()
+        database.critical_msg('removeRow', err_msg)
+        return False
+
+    def set_data_by_pk(self, pk, column, value, role=Qt.EditRole):
+        index = self.index(0, 0)
+        results = self.match(
+            index, Qt.DisplayRole, pk, hits=1, flags=Qt.MatchExactly
+        )
+        if results and results[0].isValid():
+            match_index = self.index(results[0].row(), column)
+            return self.setData(match_index, value, role)
+        return False
+
+    def setData(self, index, value, role=Qt.EditRole):
+        raise NotImplementedError
+        if role == Qt.EditRole and index.isValid():
+            con = QSqlDatabase.database(self.con_name)
+            if not con.open():
+                err_msg = con.lastError().databaseText()
+                database.critical_msg('setData', err_msg)
+                return False
+            pk = index.siblingAtColumn(0).data()
+            column = index.column()
+            # NOTE: Double-check columns; find missing
+            if column == 1:
+                col_name = 'source'
+            elif column == 2:
+                col_name = 'destination'
+            elif column == 5:
+                col_name = 'size'
+            elif column == 8:
+                col_name = 'start_time'
+            else:
+                logging.warn(f'Could not find column for {index!r} ({value})')
+                return False
+            con.transaction()
+            query = QSqlQuery(con)
+            query.prepare(f'''
+                UPDATE
+                    transfers
+                SET
+                    {col_name} = (?)
+                WHERE
+                    pk = (?)
+            ''')
+            query.addBindValue(value)
+            query.addBindValue(pk)
+            if query.exec():
+                if not con.commit():
+                    con.rollback()
+                    err_msg = query.lastError().databaseText()
+                    database.critical_msg('setData', err_msg)
+                    return False
+                self.dataChanged.emit(index, index, [Qt.DisplayRole])
+                return True
+            else:
+                con.rollback()
+                err_msg = query.lastError().databaseText()
+                database.critical_msg('setData', err_msg)
+        return False
+
+    def setQuery(self, *args, **kwargs):
+        response = super().setQuery(*args, **kwargs)
+        self.row_count = self.total_row_count()
+        return response
+
+    def select(self, *args, **kwargs):
+        con = QSqlDatabase.database(self.con_name)
+        if not con.open():
+            err_msg = con.lastError().databaseText()
+            database.critical_msg('select', err_msg)
+            return False
+        self.setQuery(self.query, con)
+        self.row_count = self.total_row_count()
+        self.last_invalidate = utils.date.now()
+        return True
 
     def delta_select(self, *, delta=2):
         if (utils.date.now() - self.last_invalidate).seconds >= delta:
