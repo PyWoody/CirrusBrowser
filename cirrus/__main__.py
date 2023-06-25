@@ -39,6 +39,7 @@ if __name__ == '__main__':
     app.aboutToQuit.connect(app.closeAllWindows)
     if not create_connection():
         sys.exit(1)
+    app.setStyle('Fusion')
     palette = QPalette()
     palette.setColor(
         QPalette.ColorRole.Window, QColor(217, 227, 201, 255)
