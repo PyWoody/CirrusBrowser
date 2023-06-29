@@ -83,8 +83,8 @@ class MainWindow(QMainWindow):
         actions_menu.addAction(toggle_transfers_action)
         actions_menu.addAction(toggle_transfers_panel_action)
 
-        edit_menu = menu.addMenu('&Edit')
-        help_menu = menu.addMenu('&Help')
+        menu.addMenu('&Edit')
+        menu.addMenu('&Help')
 
         self.central_widget.listing_panel_added.connect(
             self.track_add_panel_action

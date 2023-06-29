@@ -112,7 +112,8 @@ class TransfersWindow(QWidget):
                     model.select()
             elif widget is self.results:
                 if any(
-                    i.status == TransferStatus.COMPLETED for i in transfer_items
+                    i.status == TransferStatus.COMPLETED
+                    for i in transfer_items
                 ):
                     model.select()
         for item in transfer_items:

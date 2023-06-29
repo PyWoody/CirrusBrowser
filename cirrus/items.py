@@ -440,7 +440,9 @@ class BaseS3Item:
                 self.user, bucket=bucket, content=content
             )
         while response.get('IsTruncated'):
-            client_config['ContinuationToken'] = response['NextContinuationToken']
+            client_config['ContinuationToken'] = response[
+                'NextContinuationToken'
+            ]
             response = client.list_objects_v2(**client_config)
             for content in response.get('CommonPrefixes', []):
                 yield self.create_from_content(

@@ -111,7 +111,7 @@ class TransferFilterRunnable(BaseRunnable):
             )
         if ctime := self.dialog.filters.ctime.text():
             if str(ctime) != '0':
-                value_text = self.dialog.filters.ctime_option_increment.currentText()
+                value_text = self.dialog.filters.ctime_option_increment.currentText()  # noqa E501
                 compare_date = utils.date.subtract_period(value_text, ctime)
                 seconds = utils.date.period_to_seconds(value_text, ctime)
                 filters.append(
@@ -125,7 +125,7 @@ class TransferFilterRunnable(BaseRunnable):
                 )
         if mtime := self.dialog.filters.mtime.text():
             if str(mtime) != '0':
-                value_text = self.dialog.filters.mtime_option_increment.currentText()
+                value_text = self.dialog.filters.mtime_option_increment.currentText()  # noqa E501
                 compare_date = utils.date.subtract_period(value_text, mtime)
                 seconds = utils.date.period_to_seconds(value_text, mtime)
                 filters.append(
@@ -138,7 +138,7 @@ class TransferFilterRunnable(BaseRunnable):
                     )
                 )
         if (size := self.dialog.filters.size.text()) != '0':
-            value_text = self.dialog.filters.size_option_increment.currentText()
+            value_text = self.dialog.filters.size_option_increment.currentText()  # noqa E501
             value = utils.files.human_to_bytes(f'{size}{value_text}')
             filters.append(
                 partial(

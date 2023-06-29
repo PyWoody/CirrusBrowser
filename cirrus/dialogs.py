@@ -343,10 +343,10 @@ class TransferItemsDialog(QDialog):
 
         # This will be a pop-up
         # Overwrite (Plain)
-        ## Source is Newer
-        ## Different Size
-        ## Size or Source
-        ## Hash (algo)
+        #   Source is Newer
+        #   Different Size
+        #   Size or Source
+        #   Hash (algo)
         # Rename (make it simple, stupid, i.e., (n+1).ext)
         # Skip
 

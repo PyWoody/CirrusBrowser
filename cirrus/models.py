@@ -296,11 +296,12 @@ class ErrorsTableModel(QSqlQueryModel):
             database.critical_msg('remove_all_rows', err_msg)
             return False
         con.transaction()
-        query = QSqlQuery(f'''
+        query = QSqlQuery(
+            f'''
             DELETE FROM
                 transfers
             WHERE
-                status = {TranserStatus.ERROR.value}
+                status = {TransferStatus.ERROR.value}
             ''',
             con
         )
@@ -470,7 +471,8 @@ class CompletedTableModel(QSqlQueryModel):
             database.critical_msg('remove_all_rows', err_msg)
             return False
         con.transaction()
-        query = QSqlQuery('''
+        query = QSqlQuery(
+            '''
             DELETE FROM
                 transfers
             WHERE
@@ -1014,8 +1016,8 @@ class SearchResultsModel(QAbstractTableModel):
                        Qt.ItemIsUserCheckable | \
                        Qt.ItemIsSelectable
             return Qt.ItemIsEnabled | \
-                   Qt.ItemNeverHasChildren | \
-                   Qt.ItemIsSelectable
+                Qt.ItemNeverHasChildren | \
+                Qt.ItemIsSelectable
         return Qt.NoItemFlags
 
     def insertRows(self, row, count, parent=QModelIndex()):

@@ -130,7 +130,8 @@ class TransfersDatabaseTreeView(QTreeView):
                         partial(
                             selection_model.select,
                             QItemSelection(group[0], group[-1]),
-                            QItemSelectionModel.Rows | QItemSelectionModel.Select
+                            QItemSelectionModel.Rows |
+                            QItemSelectionModel.Select
                         )
                     )
                     group = []

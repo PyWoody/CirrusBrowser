@@ -211,7 +211,7 @@ class DatabaseWorkers:
         # Maybe keep a list in the executor and then pass that to the
         # class from `central.py`
         for item in gc.get_objects():  # I hate me, too
-            if isinstance(item, items.TransferItem) and item.pk not in self.completed:
+            if isinstance(item, items.TransferItem) and item.pk not in self.completed:  # noqa E501
                 if item.status in done_statuses:
                     if not worker_found:
                         worker_found = True
@@ -226,7 +226,7 @@ class DatabaseWorkers:
                         self.num_current_workers += 1
                         transferring.add(item.pk)
         if worker_found:
-            self.avg_bitrate = self.total_processed // self.num_finished_workers
+            self.avg_bitrate = self.total_processed // self.num_finished_workers  # noqa E501
         if self.num_current_workers:
             self.current_bitrate = processed // self.num_current_workers
 
