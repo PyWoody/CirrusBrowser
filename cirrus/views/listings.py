@@ -29,6 +29,9 @@ from PySide6.QtWidgets import (
 )
 
 
+# TODO: Move away from selectedIndexes. Manually track instead
+
+
 class FileListingTreeView(QTreeView):
     info_bar_change = Signal(str)
     location_bar_change = Signal(str)
