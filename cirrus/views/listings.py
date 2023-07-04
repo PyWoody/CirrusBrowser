@@ -217,7 +217,7 @@ class LocalFileListingView(FileListingTreeView):
             output += (f'{len(folders):,} '
                        f'folder{"s" if len(folders) > 1 else ""} selected')
         self.info_bar_change.emit(output)
-        super().selectionChanged(selected, deselected)
+        return super().selectionChanged(selected, deselected)
 
 
 class BaseS3FileListingView(FileListingTreeView):
@@ -281,7 +281,7 @@ class BaseS3FileListingView(FileListingTreeView):
             output += (f'{len(folders):,} '
                        f'folder{"s" if len(folders) > 1 else ""} selected')
         self.info_bar_change.emit(output)
-        super().selectionChanged(selected, deselected)
+        return super().selectionChanged(selected, deselected)
 
     @Slot()
     def change_dir(self):
