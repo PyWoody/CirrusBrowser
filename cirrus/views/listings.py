@@ -83,7 +83,7 @@ class FileListingTreeView(QTreeView):
         if self.type.lower() == 'local':
             self.location_bar.setValidator(LocalPathValidator())
         self.location_bar.insert(self.root)
-        self.location_bar.editingFinished.connect(self.change_dir)
+        self.location_bar.returnPressed.connect(self.change_dir)
         self.location_bar_change.connect(self.update_location_bar)
         window_location_bar_layout = QHBoxLayout()
         window_location_bar_layout.addWidget(self.back_btn)
@@ -146,6 +146,9 @@ class LocalFileListingView(FileListingTreeView):
         prev_selection_model = self.selectionModel()
         self.setModel(model)
         self.setRootIndex(model.index(self.root))
+        if self.location_bar.text() != self.root:
+            self.location_bar.clear()
+            self.location_bar.insert(self.root)
         if prev_model:
             prev_model.deleteLater()
         if prev_selection_model:
@@ -326,8 +329,6 @@ class S3FileListingView(BaseS3FileListingView):
         return 's3'
 
     def refresh(self):
-        # TODO: This blindly accepts the current location bar's text
-        #       That is not a refresh
         self.collapsed.disconnect()
         self.expanded.disconnect()
         model = S3FilesTreeModel(user=self.user)
@@ -336,6 +337,9 @@ class S3FileListingView(BaseS3FileListingView):
         self.setModel(model)
         self.collapsed.connect(self.model().view_collapsed)
         self.expanded.connect(self.model().view_expanded)
+        if self.location_bar.text() != self.root:
+            self.location_bar.clear()
+            self.location_bar.insert(self.root)
         if prev_model:
             prev_model.deleteLater()
         if prev_selection_model:
@@ -365,8 +369,6 @@ class DigitalOceanFileListingView(BaseS3FileListingView):
         return 'digital ocean'
 
     def refresh(self):
-        # TODO: This blindly accepts the current location bar's text
-        #       That is not a refresh
         self.collapsed.disconnect()
         self.expanded.disconnect()
         model = DigitalOceanFilesTreeModel(user=self.user)
@@ -375,6 +377,9 @@ class DigitalOceanFileListingView(BaseS3FileListingView):
         self.setModel(model)
         self.collapsed.connect(self.model().view_collapsed)
         self.expanded.connect(self.model().view_expanded)
+        if self.location_bar.text() != self.root:
+            self.location_bar.clear()
+            self.location_bar.insert(self.root)
         if prev_model:
             prev_model.deleteLater()
         if prev_selection_model:
