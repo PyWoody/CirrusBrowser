@@ -173,7 +173,9 @@ class SearchItemsDialog(QDialog):
         elif isinstance(parent, windows.main.MainWindow):
             for _, account in parent.central_widget.splitter_listing_panels:
                 if account['Root'].rstrip('/') not in __processed_folders:
-                    self.folders.append(items.account_to_item(account))
+                    self.folders.append(
+                        items.account_to_item(account, is_dir=True)
+                    )
                     __processed_folders.add(account['Root'].rstrip('/'))
         else:
             # TODO: Re-evaluate account v. user
@@ -286,7 +288,9 @@ class TransferItemsDialog(QDialog):
         elif isinstance(parent, windows.main.MainWindow):
             for _, account in parent.central_widget.splitter_listing_panels:
                 if account['Root'].rstrip('/') not in __processed_folders:
-                    self.folders.append(items.account_to_item(account))
+                    self.folders.append(
+                        items.account_to_item(account, is_dir=True)
+                    )
                     __processed_folders.add(account['Root'].rstrip('/'))
         else:
             # TODO: Re-evaluate account v. user

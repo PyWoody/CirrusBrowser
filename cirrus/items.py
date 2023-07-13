@@ -671,13 +671,13 @@ def new_user(user, root):
     return _user
 
 
-def account_to_item(account):
+def account_to_item(account, is_dir=False):
     if account['Type'] == 'S3':
-        return S3Item(account.copy(), is_dir=True)
+        return S3Item(account.copy(), is_dir=is_dir)
     if account['Type'] == 'Digital Ocean':
-        return DigitalOceanItem(account.copy(), is_dir=True)
+        return DigitalOceanItem(account.copy(), is_dir=is_dir)
     elif account['Type'] == 'Local':
-        return LocalItem(account.copy(), is_dir=True)
+        return LocalItem(account.copy(), is_dir=is_dir)
     else:
         raise ValueError(f'No Item-type for {account["Type"]}')
 
