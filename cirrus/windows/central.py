@@ -32,7 +32,6 @@ class CentralWidgetWindow(QWidget):  # Terrible name
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.threadpool = QThreadPool()
         self.last_select = utils.date.epoch()
         self.database = database.Database()
         self.database.start()
@@ -158,7 +157,7 @@ class CentralWidgetWindow(QWidget):  # Terrible name
         runnable.signals.ss_callback.connect(utils.execute_ss_callback)
         runnable.signals.callback.connect(utils.execute_callback)
         runnable.signals.finished.connect(print)
-        self.threadpool.start(runnable)
+        QThreadPool().globalInstance().start(runnable)
 
     def s3_context_menu(self, parent, pos, files, folders):
         raise NotImplementedError

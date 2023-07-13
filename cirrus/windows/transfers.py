@@ -25,7 +25,6 @@ class TransfersWindow(QWidget):
     def __init__(self, *, database_queue, parent=None):
         super().__init__(parent)
         self.database_queue = database_queue
-        self.threadpool = QThreadPool()
         self.last_select = utils.date.epoch()
 
         con = QSqlDatabase.database('con')
@@ -80,7 +79,7 @@ class TransfersWindow(QWidget):
         runnable.signals.ss_callback.connect(utils.execute_ss_callback)
         runnable.signals.callback.connect(utils.execute_callback)
         runnable.signals.finished.connect(print)
-        self.threadpool.start(runnable)
+        QThreadPool().globalInstance().start(runnable)
 
     @Slot()
     def select_current_tab_model(self):
