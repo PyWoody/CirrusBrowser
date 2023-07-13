@@ -1,5 +1,7 @@
 import datetime
 
+from PySide6.QtCore import QDateTime, Qt
+
 
 TIMEZONE = datetime.datetime.now(datetime.timezone.utc).astimezone().tzinfo
 
@@ -18,6 +20,12 @@ def iso_now():
 
 def to_iso(timestamp):
     return timestamp.isoformat()
+
+
+def qdatetime_to_iso(timestamp):
+    return datetime.datetime.fromisoformat(
+        timestamp.toString(Qt.ISODate)
+    )
 
 
 def period_to_seconds(period, amount):
