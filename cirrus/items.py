@@ -18,6 +18,8 @@ from boto3.s3.transfer import TransferConfig
 
 # TODO: "user" is incredibly confusing and non-ituitive.
 #       data? metdata? info? settings? client (+1)?
+# 
+#       ctime, mtime, size is redundant wrt 'user' and class variables
 
 # NOTE: row is obviously wrong
 

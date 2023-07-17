@@ -1,6 +1,9 @@
+import logging
 import os
 
-from cirrus import actions, settings, utils
+from functools import partial
+
+from cirrus import actions, items, settings, utils
 from cirrus.items import LocalItem
 from cirrus.models import (
     DigitalOceanFilesTreeModel,
@@ -13,14 +16,24 @@ from cirrus.validators import LocalPathValidator
 from PySide6.QtCore import (
     Qt,
     QDir,
-    QModelIndex,
     QItemSelection,
+    QMimeData,
+    QModelIndex,
+    QPoint,
+    QThreadPool,
     Signal,
     Slot,
 )
-from PySide6.QtGui import QIcon
+from PySide6.QtGui import (
+    QIcon,
+    QDrag,
+    QDragMoveEvent,
+    QDropEvent,
+    QMouseEvent,
+)
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QApplication,
     QHBoxLayout,
     QHeaderView,
     QLabel,
@@ -50,6 +63,9 @@ class FileListingTreeView(QTreeView):
         self.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.setSelectionMode(QAbstractItemView.ExtendedSelection)
+        self.setDragEnabled(True)
+        self.setAcceptDrops(True)
+        self.setDropIndicatorShown(True)
 
     def setup_header(self):
         # name | type | size | last mod
@@ -63,6 +79,111 @@ class FileListingTreeView(QTreeView):
         self.resizeColumnToContents(0)
         self.resizeColumnToContents(1)
         self.resizeColumnToContents(2)
+
+    @Slot(Qt.DropActions)
+    def startDrag(self, actions):
+        if indexes := self.selectedIndexes():
+            drag = QDrag(self)
+            drag.setMimeData(self.model().mimeData(indexes))
+            _ = drag.exec(Qt.CopyAction | Qt.MoveAction, Qt.CopyAction)
+
+    @Slot(QDragMoveEvent)
+    def dragMoveEvent(self, event):
+        if event.mimeData().hasUrls():
+            event.accept()
+        else:
+            event.ignore()
+
+    @Slot(QDropEvent)
+    def dropEvent(self, event):
+        # event == originator
+        # self == destination (Always QFileSystemModel)
+        if self is event.source():
+            print('Not implemented yet')
+            event.ignore()
+            return
+        if urls := event.mimeData().urls():
+            dest_index = self.indexAt(event.pos())
+            if dest_index.isValid():
+                dest_parent = dest_index.parent()
+                if dest_parent.isValid():
+                    dest_parents = []
+                    while dest_parent.isValid():
+                        if (data := dest_parent.data()) != os.sep:
+                            dest_parents.append(data)
+                        dest_parent = dest_parent.parent()
+                    dest_path = os.sep + os.sep.join(dest_parents[::-1])
+                    if self.model().isDir(dest_index):
+                        dest_path = os.path.join(dest_path, dest_index.data())
+                else:
+                    dest_path = os.path.join(self.root, dest_index.data())
+                destination = items.account_to_item(
+                    items.new_user(self.user, dest_path), is_dir=True
+                )
+            else:
+                destination = items.account_to_item(
+                    items.new_user(self.user, self.root), is_dir=True
+                )
+            source_type = items.types[event.source().type.lower()]
+            model = event.source().model()
+            files = []
+            folders = []
+            for url in urls:
+                url_model_index = model.index(url.path(), 0)
+                if url_model_index.isValid():
+                    account = items.new_user(self.user, url.path())
+                    if model.isDir(url_model_index):
+                        folders.append(
+                            items.account_to_item(account, is_dir=True)
+                        )
+                    else:
+                        file_info = model.fileInfo(url_model_index)
+                        item = source_type(
+                            account,
+                            size=file_info.size(),
+                            ctime=utils.date.qdatetime_to_iso(
+                                file_info.birthTime()
+                            ),
+                            mtime= utils.date.qdatetime_to_iso(
+                                file_info.lastModified()
+                            )
+                        )
+                        files.append(item)
+                else:
+                    logging.warn(f'Received invalid index for {url.path()}')
+            if files and folders:
+                action = actions.listings.QueueRecursiveItemsAction(
+                    event.source(), files, folders, destination
+                )
+            elif files:
+                action = actions.listings.QueueFilesAction(
+                    event.source(), files, destination
+                )
+            elif folders:
+                action = actions.listings.QueueFoldersAction(
+                    event.source(), folders, destination
+                )
+            else:
+                logging.warn(
+                    f'Failed a dropEvent from {event().source()} to {self}'
+                )
+                event.ignore()
+                return
+            runnable = action.runnable()
+            runnable.signals.aborted.connect(partial(print, 'Aborted!'))
+            runnable.signals.update.connect(print)
+            # runnable.signals.process_queue.connect(self.start_queue_tmp)
+            runnable.signals.select.connect(
+                self.parent().parent().parent().parent(
+                    ).transfers_window.tabs.widget(0).model().select
+            )
+            runnable.signals.ss_callback.connect(utils.execute_ss_callback)
+            runnable.signals.callback.connect(utils.execute_callback)
+            runnable.signals.finished.connect(print)
+            QThreadPool().globalInstance().start(runnable)
+            event.acceptProposedAction()
+        else:
+            event.ignore()
 
     def create_navigation_bar(self):
         if self.location_bar is not None:
@@ -230,7 +351,7 @@ class BaseS3FileListingView(FileListingTreeView):
     # TODO: On-hover starting fetch_children w/ tracking for start/stop
 
     def __init__(self, parent=None):
-        super().__init__(parent)  # Continues the super chain
+        super().__init__(parent)
         self.location_bar = None
         self.info_bar = None
         self.user = None
