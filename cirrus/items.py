@@ -191,8 +191,13 @@ class LocalItem:
             for f in files:
                 fname = os.path.join(root, f)
                 _user = new_user(self.user, fname)
-                size = os.stat(fname).st_size
-                item = self.create(_user, size=size)
+                stat = os.stat(fname)
+                item = self.create(
+                    _user,
+                    size=stat.st_size,
+                    mtime=stat.st_mtime,
+                    ctime=stat.st_ctime
+                )
                 file_items.append(item)
             yield root_item
             yield from dir_items
@@ -224,8 +229,13 @@ class LocalItem:
                 fname = os.path.join(root, f)
                 if os.path.isfile(fname):
                     _user = new_user(self.user, fname)
-                    size = os.stat(fname).st_size
-                    item = self.create(_user, size=size)
+                    stat = os.stat(fname)
+                    item = self.create(
+                        _user,
+                        size=stat.st_size,
+                        mtime=stat.st_mtime,
+                        ctime=stat.st_ctime
+                    )
                     file_items.append(item)
             yield root_item, dir_items, file_items
 
