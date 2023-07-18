@@ -18,7 +18,7 @@ from boto3.s3.transfer import TransferConfig
 
 # TODO: "user" is incredibly confusing and non-ituitive.
 #       data? metdata? info? settings? client (+1)?
-# 
+#
 #       ctime, mtime, size is redundant wrt 'user' and class variables
 
 # NOTE: row is obviously wrong
@@ -163,8 +163,14 @@ class LocalItem:
         return 'local'
 
     @classmethod
-    def create(cls, user, *, size=0, is_dir=False):
-        return cls(user, size=size, is_dir=is_dir)
+    def create(cls, user, *, size=0, is_dir=False, mtime=0, ctime=0):
+        return cls(
+            user,
+            size=size,
+            is_dir=is_dir,
+            mtime=mtime,
+            ctime=ctime,
+        )
 
     def clean(self, path):
         return path.replace('/', os.sep).replace('\\', os.sep)
@@ -329,10 +335,11 @@ class BaseS3Item:
         raise NotImplementedError('Must be specified in sub-class')
 
     @classmethod
-    def create(cls, user, *, size=0, is_dir=False, collapsed=True):
+    def create(cls, user, *, size=0, mtime=0, is_dir=False, collapsed=True):
         return cls(
             user=user,
             size=size,
+            mtime=mtime,
             is_dir=is_dir,
             collapsed=collapsed,
         )
