@@ -1,6 +1,6 @@
 import datetime
 
-from PySide6.QtCore import QDateTime, Qt
+from PySide6.QtCore import Qt
 
 
 TIMEZONE = datetime.datetime.now(datetime.timezone.utc).astimezone().tzinfo
