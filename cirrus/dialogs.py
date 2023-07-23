@@ -182,7 +182,9 @@ class SearchItemsDialog(QDialog):
             if self.parent.type == 's3':
                 self.folders.append(items.S3Item(client, is_dir=True))
             if self.parent.type == 'digital ocean':
-                self.folders.append(items.DigitalOceanItem(client, is_dir=True))
+                self.folders.append(
+                    items.DigitalOceanItem(client, is_dir=True)
+                )
             elif self.parent.type == 'local':
                 self.folders.append(items.LocalItem(client, is_dir=True))
             else:
@@ -296,7 +298,9 @@ class TransferItemsDialog(QDialog):
             if self.parent.type == 's3':
                 self.folders.append(items.S3Item(client, is_dir=True))
             if self.parent.type == 'digital ocean':
-                self.folders.append(items.DigitalOceanItem(client, is_dir=True))
+                self.folders.append(
+                    items.DigitalOceanItem(client, is_dir=True)
+                )
             elif self.parent.type == 'local':
                 self.folders.append(items.LocalItem(client, is_dir=True))
             else:

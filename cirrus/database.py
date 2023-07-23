@@ -332,7 +332,9 @@ class DatabaseQueue(QObject):
                     #       if not found, rebuild dict
                     #       if not found again, raise error
                     src_item_type = items.types[src_act_type]
-                    src_client = items.match_client(self.clients, src_act_type, src)
+                    src_client = items.match_client(
+                        self.clients, src_act_type, src
+                    )
                     if not src_client:
                         self.clients = list(settings.saved_clients())
                         src_client = items.match_client(
@@ -349,7 +351,9 @@ class DatabaseQueue(QObject):
                     dst = query.value(destination_idx)
                     dst_act_type = query.value(destination_type_idx).lower()
                     dst_item_type = items.types[dst_act_type]
-                    dst_client = items.match_client(self.clients, dst_act_type, dst)
+                    dst_client = items.match_client(
+                        self.clients, dst_act_type, dst
+                    )
                     if not dst_client:
                         self.clients = list(settings.saved_clients())
                         dst_client = items.match_client(

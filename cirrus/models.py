@@ -10,8 +10,6 @@ from PySide6.QtCore import (
     QAbstractListModel,
     QAbstractTableModel,
     QByteArray,
-    QDataStream,
-    QIODevice,
     QMimeData,
     QModelIndex,
     Qt,
@@ -800,9 +798,6 @@ class BaseS3FilesTreeModel(QStandardItemModel):
                 root = f'{client_config["Bucket"]}/{content["Prefix"]}'
                 item_data = {
                     'root': root,
-                    #'bucket': client_config['Bucket'],
-                    #'space': content['Prefix'],
-                    #'is_dir': True,
                     'mtime': content.get('LastModified', 0),
                 }
                 if parent_data := parent.data():
