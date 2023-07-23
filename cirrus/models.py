@@ -3,14 +3,19 @@ import threading
 import os
 
 from cirrus import database, utils
-from cirrus.items import DigitalOceanItem, S3Item
+from cirrus.items import DigitalOceanItem, LocalItem, S3Item
 from cirrus.statuses import TransferPriority, TransferStatus
 
 from PySide6.QtCore import (
     QAbstractListModel,
     QAbstractTableModel,
+    QByteArray,
+    QDataStream,
+    QIODevice,
+    QMimeData,
     QModelIndex,
     Qt,
+    QUrl,
     Signal,
     Slot,
 )
@@ -109,6 +114,7 @@ class TransfersTableModel(QSqlQueryModel):
         return False
 
     def set_data_by_pk(self, pk, column, value, role=Qt.EditRole):
+        # What? pks will be hidden; test this actually works
         index = self.index(0, 0)
         results = self.match(
             index, Qt.DisplayRole, pk, hits=1, flags=Qt.MatchExactly
@@ -629,6 +635,17 @@ class LocalFileSystemModel(QFileSystemModel):
                         result_parent = index.parent()
                         self.removeRow(index.row(), result_parent)
 
+    @Slot(QModelIndex)
+    def item_from_index(self, index):
+        info = self.fileInfo(index)
+        return LocalItem(
+                {'Root': info.absoluteFilePath()},
+                is_dir=info.isDir(),
+                size=info.size(),
+                mtime=utils.date.qdatetime_to_iso(info.lastModified()),
+                ctime=utils.date.qdatetime_to_iso(info.birthTime())
+            )
+
 
 class BaseS3FilesTreeModel(QStandardItemModel):
     new_folder_item = Signal(object, str, dict)
@@ -640,6 +657,38 @@ class BaseS3FilesTreeModel(QStandardItemModel):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._stopped = False
+
+    def filePath(self, index):
+        # compatability helper function for QFileSystemModel
+        if item := self.itemFromIndex(index):
+            if data := item.data():
+                return data.user['Root']
+
+    def supportedDropActions(self):
+        return Qt.CopyAction | Qt.MoveAction
+
+    def flags(self, index):
+        default_flags = super().flags(index)
+        if index.isValid():
+            return Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled | default_flags
+        return Qt.ItemIsDropEnabled | default_flags
+
+    def mimeTypes(self):
+        return ['text/uri-list']
+
+    def mimeData(self, indexes):
+        mime_data = QMimeData()
+        encoded_data = QByteArray()
+        for index in indexes:
+            if index.isValid() and index.column() == 0:
+                if item := self.itemFromIndex(index):
+                    if data := item.data():
+                        url = QUrl()
+                        url.setScheme('S3')
+                        url.setPath(data.user['Root'])
+                        encoded_data.append(url.toEncoded())
+        mime_data.setData('text/uri-list', encoded_data)
+        return mime_data
 
     def hasChildren(self, parent=QModelIndex()):
         if not parent.isValid():
@@ -847,6 +896,15 @@ class BaseS3FilesTreeModel(QStandardItemModel):
                         result_parent = index.parent()
                         self.removeRow(index.row(), result_parent)
 
+    @Slot(QModelIndex)
+    def item_from_index(self, index):
+        if index.isValid():
+            if index.column() != 0:
+                index = index.siblingAtColumn(0)
+            if item := self.itemFromIndex(index):
+                if data := item.data():
+                    return data
+
 
 class S3FilesTreeModel(BaseS3FilesTreeModel):
 
@@ -898,6 +956,11 @@ class S3FilesTreeModel(BaseS3FilesTreeModel):
             parent.insertRow(loading_row - 1, out_items)
             self.valid_last_row = True
 
+    @Slot(QModelIndex)
+    def item_from_index(self, index):
+        item = self.itemFromIndex(index)
+
+
 
 class DigitalOceanFilesTreeModel(BaseS3FilesTreeModel):
 
@@ -945,6 +1008,7 @@ class DigitalOceanFilesTreeModel(BaseS3FilesTreeModel):
             out_items = [QStandardItem(item_str) for item_str in items]
             _user = self.user.copy()
             _user.update(data)
+            _user['Root'] = data['root']  # Needs to be smarter
             out_items[0].setData(DigitalOceanItem(_user))
             parent.insertRow(loading_row - 1, out_items)
             self.valid_last_row = True
