@@ -17,9 +17,7 @@ from PySide6.QtCore import (
     Qt,
     QDir,
     QItemSelection,
-    QMimeData,
     QModelIndex,
-    QPoint,
     QThreadPool,
     Signal,
     Slot,
@@ -29,11 +27,9 @@ from PySide6.QtGui import (
     QDrag,
     QDragMoveEvent,
     QDropEvent,
-    QMouseEvent,
 )
 from PySide6.QtWidgets import (
     QAbstractItemView,
-    QApplication,
     QHBoxLayout,
     QHeaderView,
     QLabel,
@@ -89,83 +85,86 @@ class FileListingTreeView(QTreeView):
 
     @Slot(QDragMoveEvent)
     def dragMoveEvent(self, event):
-        if event.mimeData().hasUrls():
-            event.accept()
-        else:
-            event.ignore()
+        acceptable_schemes = {'file', 's3'}
+        if urls := event.mimeData().urls():
+            if all(i.scheme().lower() in acceptable_schemes for i in urls):
+                event.accept()
+                return
+        event.ignore()
 
     @Slot(QDropEvent)
     def dropEvent(self, event):
-        # event == originator
-        # self == destination (Always QFileSystemModel)
-        if self is event.source():
-            print('Not implemented yet')
-            event.ignore()
-            return
+        # event.source() == originator
+        # self == destination
         if urls := event.mimeData().urls():
+            if self is event.source():
+                print('Not implemented yet')
+                event.ignore()
+                return
             dest_index = self.indexAt(event.pos())
             if dest_index.isValid():
-                dest_parent = dest_index.parent()
-                if dest_parent.isValid():
-                    dest_parents = []
-                    while dest_parent.isValid():
-                        if (data := dest_parent.data()) != os.sep:
-                            dest_parents.append(data)
-                        dest_parent = dest_parent.parent()
-                    dest_path = os.sep + os.sep.join(dest_parents[::-1])
-                    if self.model().isDir(dest_index):
-                        dest_path = os.path.join(dest_path, dest_index.data())
+                if dest_index.model().hasChildren(dest_index):
+                    dest_path = dest_index.model().filePath(dest_index)
                 else:
-                    dest_path = os.path.join(self.root, dest_index.data())
-                destination = items.account_to_item(
-                    items.new_user(self.user, dest_path), is_dir=True
-                )
+                    dest_path = dest_index.model().filePath(
+                        dest_index.parent()
+                    )
             else:
-                destination = items.account_to_item(
-                    items.new_user(self.user, self.root), is_dir=True
-                )
-            source_type = items.types[event.source().type.lower()]
-            model = event.source().model()
+                dest_path = self.root
+            destination = items.account_to_item(
+                items.new_user(self.user, dest_path), is_dir=True
+            )
             files = []
             folders = []
-            for url in urls:
-                url_model_index = model.index(url.path(), 0)
-                if url_model_index.isValid():
-                    account = items.new_user(self.user, url.path())
-                    if model.isDir(url_model_index):
-                        folders.append(
-                            items.account_to_item(account, is_dir=True)
-                        )
+            if event.source() is None:
+                # From outside the App; assumes it's a local fileystem for now
+                parent = self
+                source_type = items.LocalItem
+                base_user = settings.new_user(
+                    act_type='Local',
+                    root=os.path.dirname(urls[0].path())
+                )
+                for url in urls:
+                    user = base_user.copy()
+                    user['Root'] = url.path()
+                    if os.path.isdir(url.path()):
+                        folders.append(source_type(user, is_dir=True))
                     else:
-                        file_info = model.fileInfo(url_model_index)
-                        item = source_type(
-                            account,
-                            size=file_info.size(),
-                            ctime=utils.date.qdatetime_to_iso(
-                                file_info.birthTime()
-                            ),
-                            mtime= utils.date.qdatetime_to_iso(
-                                file_info.lastModified()
+                        file_info = os.stat(url.path())
+                        files.append(
+                            source_type(
+                                user,
+                                size=file_info.st_size,
+                                mtime=file_info.st_mtime,
+                                ctime=file_info.st_ctime
                             )
                         )
-                        files.append(item)
-                else:
-                    logging.warn(f'Received invalid index for {url.path()}')
+            else:
+                parent = event.source()
+                model = event.source().model()
+                source_type = items.types[event.source().type.lower()]
+                for i in event.source().selectedIndexes():
+                    if i.column() == 0:
+                        if item := model.item_from_index(i):
+                            if item.is_dir:
+                                folders.append(item)
+                            else:
+                                files.append(item)
             if files and folders:
                 action = actions.listings.QueueRecursiveItemsAction(
-                    event.source(), files, folders, destination
+                    parent, files, folders, destination
                 )
             elif files:
                 action = actions.listings.QueueFilesAction(
-                    event.source(), files, destination
+                    parent, files, destination
                 )
             elif folders:
                 action = actions.listings.QueueFoldersAction(
-                    event.source(), folders, destination
+                    parent, folders, destination
                 )
             else:
                 logging.warn(
-                    f'Failed a dropEvent from {event().source()} to {self}'
+                    f'Failed a dropEvent from {event.source()} to {self}'
                 )
                 event.ignore()
                 return
