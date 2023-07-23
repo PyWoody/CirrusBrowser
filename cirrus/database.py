@@ -117,7 +117,10 @@ class Database(QWidget):
                         output_groups = []
                         out_items = []
                     out_fname = os.path.join(out_path, f)
-                    out_item = items.LocalItem(out_fname)
+                    client = settings.setup_client(
+                        act_type='Local', root=out_fname
+                    )
+                    out_item = items.LocalItem(client)
                     out_items.append(out_item)
                 if out_items:
                     output_groups.append((out_items, out_path))
@@ -239,7 +242,7 @@ class DatabaseQueue(QObject):
 
     def __init__(self, *, parent=None, max_workers=10):
         super().__init__(parent)
-        self.users = list(settings.saved_users())
+        self.clients = list(settings.saved_clients())
         self.workers = DatabaseWorkers()
         self.max_workers = 10
         self.con_thread_name = 'database_thread'
@@ -324,43 +327,43 @@ class DatabaseQueue(QObject):
                     src_act_type = query.value(source_type_idx).lower()
                     # TODO: S3/DO will need the Access Key in the User
                     #       Hmm...
-                    #       Maybe build a users_dict from settings
+                    #       Maybe build a clients_dict from settings
                     #       check type --> root
                     #       if not found, rebuild dict
                     #       if not found again, raise error
                     src_item_type = items.types[src_act_type]
-                    src_user = items.match_user(self.users, src_act_type, src)
-                    if not src_user:
-                        self.users = list(settings.saved_users())
-                        src_user = items.match_user(
-                            self.users, src_act_type, src
+                    src_client = items.match_client(self.clients, src_act_type, src)
+                    if not src_client:
+                        self.clients = list(settings.saved_clients())
+                        src_client = items.match_client(
+                            self.clients, src_act_type, src
                         )
-                        if not src_user:
+                        if not src_client:
                             # TODO: Add these to the Error tab
                             logging.warn(
-                                f'Could not find user for {src}. Skipping'
+                                f'Could not find client for {src}. Skipping'
                             )
                             continue
-                    src_user['Root'] = src
-                    src_item = src_item_type(src_user, size=size)
+                    src_client['Root'] = src
+                    src_item = src_item_type(src_client, size=size)
                     dst = query.value(destination_idx)
                     dst_act_type = query.value(destination_type_idx).lower()
                     dst_item_type = items.types[dst_act_type]
-                    dst_user = items.match_user(self.users, dst_act_type, dst)
-                    if not dst_user:
-                        self.users = list(settings.saved_users())
-                        dst_user = items.match_user(
-                            self.users, dst_act_type, dst
+                    dst_client = items.match_client(self.clients, dst_act_type, dst)
+                    if not dst_client:
+                        self.clients = list(settings.saved_clients())
+                        dst_client = items.match_client(
+                            self.clients, dst_act_type, dst
                         )
-                        if not dst_user:
+                        if not dst_client:
                             # TODO: Add these to the Error tab
                             logging.warn(
-                                f'Could not find user for {dst}. Skipping'
+                                f'Could not find client for {dst}. Skipping'
                             )
                             continue
-                    dst_user['Root'] = dst
+                    dst_client['Root'] = dst
                     dst_item = dst_item_type(
-                        dst_user, size=size
+                        dst_client, size=size
                     )
                     priority = query.value(priority_idx)
                     priority = 3 if priority == 0 else priority

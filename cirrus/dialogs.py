@@ -178,14 +178,13 @@ class SearchItemsDialog(QDialog):
                     )
                     __processed_folders.add(account['Root'].rstrip('/'))
         else:
-            # TODO: Re-evaluate account v. user
-            user = self.parent.user.copy()
+            client = self.parent.client.copy()
             if self.parent.type == 's3':
-                self.folders.append(items.S3Item(user, is_dir=True))
+                self.folders.append(items.S3Item(client, is_dir=True))
             if self.parent.type == 'digital ocean':
-                self.folders.append(items.DigitalOceanItem(user, is_dir=True))
+                self.folders.append(items.DigitalOceanItem(client, is_dir=True))
             elif self.parent.type == 'local':
-                self.folders.append(items.LocalItem(user, is_dir=True))
+                self.folders.append(items.LocalItem(client, is_dir=True))
             else:
                 raise ValueError(f'No Item-type for {self.parent.type}')
         self.folders.sort(key=lambda x: x.root)
@@ -293,14 +292,13 @@ class TransferItemsDialog(QDialog):
                     )
                     __processed_folders.add(account['Root'].rstrip('/'))
         else:
-            # TODO: Re-evaluate account v. user
-            user = self.parent.user.copy()
+            client = self.parent.client.copy()
             if self.parent.type == 's3':
-                self.folders.append(items.S3Item(user, is_dir=True))
+                self.folders.append(items.S3Item(client, is_dir=True))
             if self.parent.type == 'digital ocean':
-                self.folders.append(items.DigitalOceanItem(user, is_dir=True))
+                self.folders.append(items.DigitalOceanItem(client, is_dir=True))
             elif self.parent.type == 'local':
-                self.folders.append(items.LocalItem(user, is_dir=True))
+                self.folders.append(items.LocalItem(client, is_dir=True))
             else:
                 raise ValueError(f'No Item-type for {self.parent.type}')
         self.folders.sort(key=lambda x: x.root)

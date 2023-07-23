@@ -54,11 +54,11 @@ class LoginWindow(QDialog):
         widget = QWidget()
         layout = QVBoxLayout()
         layout.addStretch(1)
-        if users := list(settings.saved_users()):
-            for user in users:
-                account_selection = AccountLabel(user)
+        if clients := list(settings.saved_clients()):
+            for client in clients:
+                account_selection = AccountLabel(client)
                 account_selection.clicked.connect(
-                    partial(self.accounts.append, user)
+                    partial(self.accounts.append, client)
                 )
                 account_selection.clicked.connect(self.close)
                 layout.addWidget(account_selection)
@@ -248,7 +248,7 @@ class LoginWindow(QDialog):
         key = key.text()
         secret_key = secret_key.text()
         try:
-            user = settings.new_user(
+            client = settings.setup_client(
                 act_type=service_type,
                 access_key=key,
                 nickname=nickname,
@@ -264,7 +264,7 @@ class LoginWindow(QDialog):
                 aws_access_key_id=key,
                 aws_secret_access_key=secret_key,
             )
-            item = DigitalOceanItem(user, is_dir=True)
+            item = DigitalOceanItem(client, is_dir=True)
             config = {
                 'Bucket': item.bucket,
                 'MaxKeys': 1_000,
@@ -297,9 +297,9 @@ class LoginWindow(QDialog):
             )
         else:
             # Keyring
-            settings.update_saved_users(user)
+            settings.update_saved_clients(client)
             keyring.set_password('system', f'_s3_{key}_secret_key', secret_key)
-            self.accounts.append(user)
+            self.accounts.append(client)
             self.close()
 
     def test_s3_credentials(
@@ -317,7 +317,7 @@ class LoginWindow(QDialog):
         key = key.text()
         secret_key = secret_key.text()
         try:
-            user = settings.new_user(
+            client = settings.setup_client(
                 act_type=service_type,
                 access_key=key,
                 nickname=nickname,
@@ -331,7 +331,7 @@ class LoginWindow(QDialog):
                 aws_access_key_id=key,
                 aws_secret_access_key=secret_key,
             )
-            item = S3Item(user, is_dir=True)
+            item = S3Item(client, is_dir=True)
             config = {
                 'Bucket': item.bucket,
                 'MaxKeys': 1_000,
@@ -362,9 +362,9 @@ class LoginWindow(QDialog):
             )
         else:
             # Keyring
-            settings.update_saved_users(user)
+            settings.update_saved_clients(client)
             keyring.set_password('system', f'_s3_{key}_secret_key', secret_key)
-            self.accounts.append(user)
+            self.accounts.append(client)
             self.close()
 
     def closeEvent(self, *args, **kwargs):

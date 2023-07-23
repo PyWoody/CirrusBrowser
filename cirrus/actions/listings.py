@@ -262,8 +262,8 @@ class CreateDirectoryRunnable(BaseRunnable):
         for _, checkbox, label in self.dialog.folder_options:
             if checkbox.isChecked():
                 path = utils.html_to_text(label.text())
-                user = items.new_user(self.parent.user, path)
-                item(user, is_dir=True).makedirs()
+                client = items.new_client(self.parent.client, path)
+                item(client, is_dir=True).makedirs()
         self.signals.finished.emit(f'Testing - {self.parent.root} - FINISHED')
         self.signals.callback.emit(self.parent.refresh)
 

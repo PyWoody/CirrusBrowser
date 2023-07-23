@@ -43,7 +43,7 @@ class AddPanelOptionMenu(QMenu):
     @Slot()
     def build_menu(self):
         self.clear()
-        for account in settings.saved_users():
+        for account in settings.saved_clients():
             text = f'({account["Type"]}) {account["Root"]}'
             action = QAction(text, self)
             action.triggered.connect(partial(self.process, account))

@@ -112,7 +112,7 @@ class FileListingTreeView(QTreeView):
             else:
                 dest_path = self.root
             destination = items.account_to_item(
-                items.new_user(self.user, dest_path), is_dir=True
+                items.new_client(self.client, dest_path), is_dir=True
             )
             files = []
             folders = []
@@ -120,20 +120,20 @@ class FileListingTreeView(QTreeView):
                 # From outside the App; assumes it's a local fileystem for now
                 parent = self
                 source_type = items.LocalItem
-                base_user = settings.new_user(
+                base_client = settings.new_client(
                     act_type='Local',
                     root=os.path.dirname(urls[0].path())
                 )
                 for url in urls:
-                    user = base_user.copy()
-                    user['Root'] = url.path()
+                    client = base_client.copy()
+                    client['Root'] = url.path()
                     if os.path.isdir(url.path()):
-                        folders.append(source_type(user, is_dir=True))
+                        folders.append(source_type(client, is_dir=True))
                     else:
                         file_info = os.stat(url.path())
                         files.append(
                             source_type(
-                                user,
+                                client,
                                 size=file_info.st_size,
                                 mtime=file_info.st_mtime,
                                 ctime=file_info.st_ctime
@@ -228,14 +228,14 @@ class FileListingTreeView(QTreeView):
 class LocalFileListingView(FileListingTreeView):
     # TODO: Turn off auto updating. It's very slow
 
-    def __init__(self, user, parent=None):
+    def __init__(self, client, parent=None):
         super().__init__(parent)
-        user = user.copy()
-        if root := user.get('Root'):
+        client = client.copy()
+        if root := client.get('Root'):
             self.root = root
         else:
             self.root = os.path.expanduser('~')
-        self.user = user
+        self.client = client
         self.location_bar = None
         self.info_bar = None
         model = LocalFileSystemModel()
@@ -253,8 +253,8 @@ class LocalFileListingView(FileListingTreeView):
         return 'local'
 
     @classmethod
-    def clone(cls, user, parent):
-        return cls(user, parent=parent)
+    def clone(cls, client, parent):
+        return cls(client, parent=parent)
 
     def refresh(self):
         model = LocalFileSystemModel()
@@ -278,7 +278,7 @@ class LocalFileListingView(FileListingTreeView):
     def change_dir(self):
         if (location := self.location_bar.text()) != self.root:
             self.root = location
-            self.user['Root'] = location
+            self.client['Root'] = location
             self.root_changed.emit(location)
             self.refresh()
 
@@ -298,16 +298,16 @@ class LocalFileListingView(FileListingTreeView):
         for index in self.selectedIndexes():
             if index.column() == 0:
                 if item := index.model().fileInfo(index):
-                    _user = self.user.copy()
-                    _user['Root'] = item.filePath()
+                    _client = self.client.copy()
+                    _client['Root'] = item.filePath()
                     if item.isFile():
                         standard_item = LocalItem(
-                            _user, size=item.size()
+                            _client, size=item.size()
                         )
                         files.append(standard_item)
                     else:
                         standard_item = LocalItem(
-                            _user, is_dir=True
+                            _client, is_dir=True
                         )
                         folders.append(standard_item)
         self.context_selections.emit(self, event.globalPos(), files, folders)
@@ -353,12 +353,12 @@ class BaseS3FileListingView(FileListingTreeView):
         super().__init__(parent)
         self.location_bar = None
         self.info_bar = None
-        self.user = None
+        self.client = None
         self.root = None
 
     @classmethod
-    def clone(cls, user, parent):
-        return cls(user, parent=parent)
+    def clone(cls, client, parent):
+        return cls(client, parent=parent)
 
     @Slot(QModelIndex)
     def item_double_clicked(self, index):
@@ -413,7 +413,7 @@ class BaseS3FileListingView(FileListingTreeView):
     def change_dir(self):
         if (location := self.location_bar.text()) != self.root:
             self.root = location
-            self.user['Root'] = location
+            self.client['Root'] = location
             self.root_changed.emit(location)
             self.refresh()
 
@@ -430,14 +430,14 @@ class BaseS3FileListingView(FileListingTreeView):
 
 class S3FileListingView(BaseS3FileListingView):
 
-    def __init__(self, user, parent=None):
+    def __init__(self, client, parent=None):
         super().__init__(parent)
-        user = user.copy()
-        if not user['Root'].startswith('/'):
-            user['Root'] = '/' + user['Root']
-        self.root = user['Root']
-        self.user = user
-        model = S3FilesTreeModel(user=self.user)
+        client = client.copy()
+        if not client['Root'].startswith('/'):
+            client['Root'] = '/' + client['Root']
+        self.root = client['Root']
+        self.client = client
+        model = S3FilesTreeModel(client=self.client)
         self.setModel(model)
         self.setup_header()
         self.doubleClicked.connect(self.item_double_clicked)
@@ -451,7 +451,7 @@ class S3FileListingView(BaseS3FileListingView):
     def refresh(self):
         self.collapsed.disconnect()
         self.expanded.disconnect()
-        model = S3FilesTreeModel(user=self.user)
+        model = S3FilesTreeModel(client=self.client)
         prev_model = self.model()
         prev_selection_model = self.selectionModel()
         self.setModel(model)
@@ -468,16 +468,16 @@ class S3FileListingView(BaseS3FileListingView):
 
 class DigitalOceanFileListingView(BaseS3FileListingView):
 
-    def __init__(self, user, parent=None):
+    def __init__(self, client, parent=None):
         super().__init__(parent)
-        user = user.copy()
-        if not user['Root'].startswith('/'):
-            user['Root'] = '/' + user['Root']
-        self.root = user['Root']
-        self.user = user
+        client = client.copy()
+        if not client['Root'].startswith('/'):
+            client['Root'] = '/' + client['Root']
+        self.root = client['Root']
+        self.client = client
         self.location_bar = None
         self.info_bar = None
-        model = DigitalOceanFilesTreeModel(user=self.user)
+        model = DigitalOceanFilesTreeModel(client=self.client)
         self.setModel(model)
         self.setup_header()
         self.doubleClicked.connect(self.item_double_clicked)
@@ -491,7 +491,7 @@ class DigitalOceanFileListingView(BaseS3FileListingView):
     def refresh(self):
         self.collapsed.disconnect()
         self.expanded.disconnect()
-        model = DigitalOceanFilesTreeModel(user=self.user)
+        model = DigitalOceanFilesTreeModel(client=self.client)
         prev_model = self.model()
         prev_selection_model = self.selectionModel()
         self.setModel(model)

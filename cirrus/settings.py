@@ -130,23 +130,23 @@ def remove_saved_panel(panel):
             RW_LOCK.unlock()
 
 
-def saved_users():
+def saved_clients():
     if data := read_settings_data():
         yield from data.setdefault('Users', [])
 
 
-def update_saved_users(user):
+def update_saved_clients(client):
     data = read_settings_data()
     RW_LOCK.lockForWrite()
-    for existing_user in data.setdefault('Users', []):
-        if existing_user['Type'] == user['Type']:
-            if existing_user['Access Key'] == user['Access Key']:
-                for k, v in user.items():
-                    if existing_user[k] != v:
-                        existing_user[k] = v
+    for existing_client in data.setdefault('Users', []):
+        if existing_client['Type'] == client['Type']:
+            if existing_client['Access Key'] == client['Access Key']:
+                for k, v in client.items():
+                    if existing_client[k] != v:
+                        existing_client[k] = v
                 break
     else:
-        data.setdefault('Users', []).append(user)
+        data.setdefault('Users', []).append(client)
     with open(SETUP, 'w', encoding='utf8') as f:
         json.dump(data, f)
     RW_LOCK.unlock()
@@ -159,7 +159,7 @@ def update_panel_by_index_cb(*, panel, index, key):
     return cb
 
 
-def new_user(
+def setup_client(
             *,
             act_type,
             root,

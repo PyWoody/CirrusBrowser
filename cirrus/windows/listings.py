@@ -62,12 +62,12 @@ class BaseListingWindow(QWidget):
 class DigitOceanFileListingWindow(BaseListingWindow):
 
     # TODO: Kill fetch_children's on back/forward butto presses
-    def __init__(self, user, parent=None):
+    def __init__(self, client, parent=None):
         super().__init__(parent)
         self.from_nav_btn = False
         self.current_index = 0
         self.history = []
-        self.view = DigitalOceanFileListingView(user)
+        self.view = DigitalOceanFileListingView(client)
         self.location_bar = self.view.create_navigation_bar()
         self.info_bar = self.view.create_info_bar()
         layout = QVBoxLayout()
@@ -90,12 +90,12 @@ class DigitOceanFileListingWindow(BaseListingWindow):
 
 class LocalFileListingWindow(BaseListingWindow):
 
-    def __init__(self, user, parent=None):
+    def __init__(self, client, parent=None):
         super().__init__(parent)
         self.from_nav_btn = False
         self.current_index = 0
         self.history = []
-        self.view = LocalFileListingView(user)
+        self.view = LocalFileListingView(client)
         self.location_bar_layout = self.view.create_navigation_bar()
         self.info_bar = self.view.create_info_bar()
         layout = QVBoxLayout()
@@ -120,12 +120,12 @@ class LocalFileListingWindow(BaseListingWindow):
 
 class S3FileListingWindow(BaseListingWindow):
 
-    def __init__(self, user, parent=None):
+    def __init__(self, client, parent=None):
         super().__init__(parent)
         self.from_nav_btn = False
         self.current_index = 0
         self.history = []
-        self.view = S3FileListingView(user)
+        self.view = S3FileListingView(client)
         self.location_bar = self.view.create_navigation_bar()
         self.info_bar = self.view.create_info_bar()
         layout = QVBoxLayout()

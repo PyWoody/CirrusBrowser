@@ -2,7 +2,7 @@ import logging
 import threading
 import os
 
-from cirrus import database, utils
+from cirrus import database, settings, utils
 from cirrus.items import DigitalOceanItem, LocalItem, S3Item
 from cirrus.statuses import TransferPriority, TransferStatus
 
@@ -638,8 +638,11 @@ class LocalFileSystemModel(QFileSystemModel):
     @Slot(QModelIndex)
     def item_from_index(self, index):
         info = self.fileInfo(index)
+        client = settings.setup_client(
+            act_type='Local', root=info.absoluteFilePath()
+        )
         return LocalItem(
-                {'Root': info.absoluteFilePath()},
+                client,
                 is_dir=info.isDir(),
                 size=info.size(),
                 mtime=utils.date.qdatetime_to_iso(info.lastModified()),
@@ -662,7 +665,7 @@ class BaseS3FilesTreeModel(QStandardItemModel):
         # compatability helper function for QFileSystemModel
         if item := self.itemFromIndex(index):
             if data := item.data():
-                return data.user['Root']
+                return data.root
 
     def supportedDropActions(self):
         return Qt.CopyAction | Qt.MoveAction
@@ -685,7 +688,7 @@ class BaseS3FilesTreeModel(QStandardItemModel):
                     if data := item.data():
                         url = QUrl()
                         url.setScheme('S3')
-                        url.setPath(data.user['Root'])
+                        url.setPath(data.root)
                         encoded_data.append(url.toEncoded())
         mime_data.setData('text/uri-list', encoded_data)
         return mime_data
@@ -741,7 +744,10 @@ class BaseS3FilesTreeModel(QStandardItemModel):
                 return
             fname = content['Prefix'].strip('/').split('/')[-1]
             root = f'{client_config["Bucket"]}/{content["Prefix"]}'
-            item_data = {'root': root, 'is_dir': True}
+            item_data = {
+                'root': root,
+                'mtime': content.get('LastModified', 0),
+            }
             # TODO: This causes a runtime error if parent is deleted
             #       before we get to this point
             #       Should do a is_alive style check and return otherwise
@@ -763,7 +769,6 @@ class BaseS3FilesTreeModel(QStandardItemModel):
                 item_data = {
                     'root': file_path,
                     'size': content['Size'],
-                    'is_dir': False,
                     'mtime': content.get('LastModified', 0),
                 }
                 if parent_data := parent.data():
@@ -795,9 +800,9 @@ class BaseS3FilesTreeModel(QStandardItemModel):
                 root = f'{client_config["Bucket"]}/{content["Prefix"]}'
                 item_data = {
                     'root': root,
-                    'bucket': client_config['Bucket'],
-                    'space': content['Prefix'],
-                    'is_dir': True,
+                    #'bucket': client_config['Bucket'],
+                    #'space': content['Prefix'],
+                    #'is_dir': True,
                     'mtime': content.get('LastModified', 0),
                 }
                 if parent_data := parent.data():
@@ -816,7 +821,6 @@ class BaseS3FilesTreeModel(QStandardItemModel):
                     item_data = {
                         'root': file_path,
                         'size': content['Size'],
-                        'is_dir': False,
                         'mtime': content.get('LastModified', 0),
                     }
                     if parent_data := parent.data():
@@ -908,9 +912,9 @@ class BaseS3FilesTreeModel(QStandardItemModel):
 
 class S3FilesTreeModel(BaseS3FilesTreeModel):
 
-    def __init__(self, *, user, parent=None, max_keys=1_000):
+    def __init__(self, *, client, parent=None, max_keys=1_000):
         super().__init__(parent)
-        self.user = user.copy()
+        self.client = client.copy()
         self.new_folder_item.connect(self.create_folder_item)
         self.new_file_item.connect(self.create_file_item)
         self.all_items_loaded.connect(self.remove_loading_row)
@@ -922,7 +926,7 @@ class S3FilesTreeModel(BaseS3FilesTreeModel):
         # TODO: connect to any row add slots to reset this
         self.valid_last_row = True
         # TODO: Cancel specific threads
-        self.fetch_children(S3Item(self.user, is_dir=True))
+        self.fetch_children(S3Item(self.client, is_dir=True))
 
     @Slot(QStandardItem, str, dict)
     def create_folder_item(self, parent, fname, data):
@@ -932,13 +936,16 @@ class S3FilesTreeModel(BaseS3FilesTreeModel):
                     logging.info(f'{parent} exited due to collapse.')
                     return
             loading_row = parent.rowCount()
-            _user = self.user.copy()
-            _user.update(data)
-            _user['Root'] = data['root']  # Needs to be smarter
-            item_data = S3Item(_user, is_dir=True)
-            item = QStandardItem(fname)
-            item.setData(item_data)
-            parent.insertRow(loading_row - 1, [item])
+            _client = self.client.copy()
+            _client['Root'] = data['root']
+            item = S3Item(
+                _client,
+                mtime=data.get('mtime', 0),
+                is_dir=True
+            )
+            display_item = QStandardItem(fname)
+            display_item.setData(item)
+            parent.insertRow(loading_row - 1, [display_item])
             self.valid_last_row = True
 
     @Slot(QStandardItem, tuple, dict)
@@ -949,24 +956,33 @@ class S3FilesTreeModel(BaseS3FilesTreeModel):
                     logging.info(f'{parent} exited due to collapse.')
                     return
             loading_row = parent.rowCount()
-            out_items = [QStandardItem(item_str) for item_str in items]
-            _user = self.user.copy()
-            _user.update(data)
-            out_items[0].setData(S3Item(_user))
-            parent.insertRow(loading_row - 1, out_items)
+            display_items = [QStandardItem(item_str) for item_str in items]
+            _client = self.client.copy()
+            _client['Root'] = data['root']
+            item = S3Item(
+                _client,
+                mtime=data.get('mtime', 0),
+                size=data['size'],
+            )
+            display_items[0].setData(item)
+            parent.insertRow(loading_row - 1, display_items)
             self.valid_last_row = True
 
     @Slot(QModelIndex)
     def item_from_index(self, index):
-        item = self.itemFromIndex(index)
-
+        if index.isValid():
+            if index.column() != 0:
+                index = index.siblingAtColumn(0)
+            if item := self.itemFromIndex(index):
+                if data := item.data():
+                    return data
 
 
 class DigitalOceanFilesTreeModel(BaseS3FilesTreeModel):
 
-    def __init__(self, *, user, parent=None, max_keys=1_000):
+    def __init__(self, *, client, parent=None, max_keys=1_000):
         super().__init__(parent)
-        self.user = user.copy()
+        self.client = client.copy()
         self.new_folder_item.connect(self.create_folder_item)
         self.new_file_item.connect(self.create_file_item)
         self.all_items_loaded.connect(self.remove_loading_row)
@@ -978,7 +994,7 @@ class DigitalOceanFilesTreeModel(BaseS3FilesTreeModel):
         # TODO: connect to any row add slots to reset this
         self.valid_last_row = True
         # TODO: Cancel specific threads
-        self.fetch_children(DigitalOceanItem(self.user, is_dir=True))
+        self.fetch_children(DigitalOceanItem(self.client, is_dir=True))
 
     @Slot(QStandardItem, str, dict)
     def create_folder_item(self, parent, fname, data):
@@ -988,13 +1004,16 @@ class DigitalOceanFilesTreeModel(BaseS3FilesTreeModel):
                     logging.info(f'{parent} exited due to collapse.')
                     return
             loading_row = parent.rowCount()
-            _user = self.user.copy()
-            _user.update(data)
-            _user['Root'] = data['root']  # Needs to be smarter
-            item_data = DigitalOceanItem(_user, is_dir=True)
-            item = QStandardItem(fname)
-            item.setData(item_data)
-            parent.insertRow(loading_row - 1, [item])
+            _client = self.client.copy()
+            _client['Root'] = data['root']
+            item = DigitalOceanItem(
+                _client,
+                mtime=data.get('mtime', 0),
+                is_dir=True
+            )
+            display_item = QStandardItem(fname)
+            display_item.setData(item)
+            parent.insertRow(loading_row - 1, [display_item])
             self.valid_last_row = True
 
     @Slot(QStandardItem, tuple, dict)
@@ -1005,12 +1024,16 @@ class DigitalOceanFilesTreeModel(BaseS3FilesTreeModel):
                     logging.info(f'{parent} exited due to collapse.')
                     return
             loading_row = parent.rowCount()
-            out_items = [QStandardItem(item_str) for item_str in items]
-            _user = self.user.copy()
-            _user.update(data)
-            _user['Root'] = data['root']  # Needs to be smarter
-            out_items[0].setData(DigitalOceanItem(_user))
-            parent.insertRow(loading_row - 1, out_items)
+            display_items = [QStandardItem(item_str) for item_str in items]
+            _client = self.client.copy()
+            _client['Root'] = data['root']
+            item = DigitalOceanItem(
+                _client,
+                mtime=data.get('mtime', 0),
+                size=data['size'],
+            )
+            display_items[0].setData(item)
+            parent.insertRow(loading_row - 1, display_items)
             self.valid_last_row = True
 
 

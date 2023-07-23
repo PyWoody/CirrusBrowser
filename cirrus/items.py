@@ -15,12 +15,6 @@ import keyring
 from botocore.config import Config
 from boto3.s3.transfer import TransferConfig
 
-
-# TODO: "user" is incredibly confusing and non-ituitive.
-#       data? metdata? info? settings? client (+1)?
-#
-#       ctime, mtime, size is redundant wrt 'user' and class variables
-
 # NOTE: row is obviously wrong
 
 
@@ -137,14 +131,14 @@ class TransferItem:
 
 class LocalItem:
 
-    __slots__ = ('user', 'root', 'is_dir', 'size', 'mtime', 'ctime')
+    __slots__ = ('client', 'root', 'is_dir', 'size', 'mtime', 'ctime')
 
-    def __init__(self, user, *, size=0, is_dir=False, mtime=0, ctime=0):
-        if root := user.get('Root'):
+    def __init__(self, client, *, size=0, is_dir=False, mtime=0, ctime=0):
+        if root := client.get('Root'):
             self.root = root
         else:
             self.root = os.path.expanduser('~')
-        self.user = user
+        self.client = client
         self.is_dir = is_dir
         self.size = size
         self.mtime = mtime
@@ -152,7 +146,7 @@ class LocalItem:
 
     def __repr__(self):
         return (f'{self.__class__.__name__}('
-                f'{self.user}, '
+                f'{self.client}, '
                 f'size={self.size}, '
                 f'is_dir={self.is_dir}, '
                 f'mtime={self.mtime}, '
@@ -163,9 +157,9 @@ class LocalItem:
         return 'local'
 
     @classmethod
-    def create(cls, user, *, size=0, is_dir=False, mtime=0, ctime=0):
+    def create(cls, client, *, size=0, is_dir=False, mtime=0, ctime=0):
         return cls(
-            user,
+            client,
             size=size,
             is_dir=is_dir,
             mtime=mtime,
@@ -181,19 +175,19 @@ class LocalItem:
         if path is None:
             path = self
         for root, dirs, files in os.walk(path.root):
-            _user = new_user(self.user, root)
-            root_item = self.create(_user, is_dir=True)
+            _client = new_client(self.client, root)
+            root_item = self.create(_client, is_dir=True)
             dir_items = []
             for d in dirs:
-                _user = new_user(self.user, os.path.join(root, d))
-                dir_items.append(self.create(_user, is_dir=True))
+                _client = new_client(self.client, os.path.join(root, d))
+                dir_items.append(self.create(_client, is_dir=True))
             file_items = []
             for f in files:
                 fname = os.path.join(root, f)
-                _user = new_user(self.user, fname)
+                _client = new_client(self.client, fname)
                 stat = os.stat(fname)
                 item = self.create(
-                    _user,
+                    _client,
                     size=stat.st_size,
                     mtime=stat.st_mtime,
                     ctime=stat.st_ctime
@@ -218,20 +212,20 @@ class LocalItem:
         if path is None:
             path = self
         for root, dirs, files in os.walk(path.root):
-            _user = new_user(self.user, root)
-            root_item = self.create(_user, is_dir=True)
+            _client = new_client(self.client, root)
+            root_item = self.create(_client, is_dir=True)
             dir_items = []
             for d in dirs:
-                _user = new_user(self.user, os.path.join(root, d))
-                dir_items.append(self.create(_user, is_dir=True))
+                _client = new_client(self.client, os.path.join(root, d))
+                dir_items.append(self.create(_client, is_dir=True))
             file_items = []
             for f in files:
                 fname = os.path.join(root, f)
                 if os.path.isfile(fname):
-                    _user = new_user(self.user, fname)
+                    _client = new_client(self.client, fname)
                     stat = os.stat(fname)
                     item = self.create(
-                        _user,
+                        _client,
                         size=stat.st_size,
                         mtime=stat.st_mtime,
                         ctime=stat.st_ctime
@@ -320,12 +314,12 @@ class LocalItem:
 class BaseS3Item:
 
     def __init__(
-        self, user, *, size=0, mtime=0, is_dir=False, collapsed=True
+        self, client, *, size=0, mtime=0, is_dir=False, collapsed=True
     ):
-        if not user['Root'].startswith('/'):
-            user['Root'] = '/' + user['Root']
-        self.root = user['Root']
-        self.user = user
+        if not client['Root'].startswith('/'):
+            client['Root'] = '/' + client['Root']
+        self.root = client['Root']
+        self.client = client
         self.is_dir = is_dir
         self.collapsed = collapsed
         self.size = size
@@ -335,7 +329,7 @@ class BaseS3Item:
 
     def __repr__(self):
         return (f'{self.__class__.__name__}('
-                f'{self.user}, '
+                f'{self.client}, '
                 f'size={self.size}, '
                 f'collapsed={self.collapsed}, '
                 f'is_dir={self.is_dir}, '
@@ -345,9 +339,9 @@ class BaseS3Item:
         raise NotImplementedError('Must be specified in sub-class')
 
     @classmethod
-    def create(cls, user, *, size=0, mtime=0, is_dir=False, collapsed=True):
+    def create(cls, client, *, size=0, mtime=0, is_dir=False, collapsed=True):
         return cls(
-            user=user,
+            client=client,
             size=size,
             mtime=mtime,
             is_dir=is_dir,
@@ -355,14 +349,14 @@ class BaseS3Item:
         )
 
     @classmethod
-    def create_from_content(cls, user, *, bucket, content):
+    def create_from_content(cls, client, *, bucket, content):
         root = '/'.join(
             [bucket, content.get('Key', content.get('Prefix'))]
         )
         size = content.get('Size', 0)
-        _user = new_user(user, root)
+        _client = new_client(client, root)
         return cls(
-            _user,
+            _client,
             size=size,
             is_dir=True if size == 0 else False,
             mtime=content.get('LastModified', 0),
@@ -425,8 +419,8 @@ class BaseS3Item:
         for dir_item in dirs:
             dir_name = dir_item.root.strip('/').split('/')[-1]
             out_path = f'{path.root.rstrip("/")}/{dir_name}/'
-            _user = new_user(self.user, out_path)
-            out_item = self.create(_user, is_dir=True)
+            _client = new_client(self.client, out_path)
+            out_item = self.create(_client, is_dir=True)
             yield from self.__walk(
                 client=client, path=out_item, topdown=topdown
             )
@@ -452,11 +446,11 @@ class BaseS3Item:
         response = client.list_objects_v2(**client_config)
         for content in response.get('CommonPrefixes', []):
             yield self.create_from_content(
-                self.user, bucket=bucket, content=content
+                self.client, bucket=bucket, content=content
             )
         for content in response.get('Contents', []):
             yield self.create_from_content(
-                self.user, bucket=bucket, content=content
+                self.client, bucket=bucket, content=content
             )
         while response.get('IsTruncated'):
             client_config['ContinuationToken'] = response[
@@ -465,11 +459,11 @@ class BaseS3Item:
             response = client.list_objects_v2(**client_config)
             for content in response.get('CommonPrefixes', []):
                 yield self.create_from_content(
-                    self.user, bucket=bucket, content=content
+                    self.client, bucket=bucket, content=content
                 )
             for content in response.get('Contents', []):
                 yield self.create_from_content(
-                    self.user, bucket=bucket, content=content
+                    self.client, bucket=bucket, content=content
                 )
 
     def upload(self, callback=None, overwrite=False, buffer_size=4096):
@@ -605,7 +599,7 @@ class BaseS3Item:
 class S3Item(BaseS3Item):
 
     __slots__ = (
-        'user',
+        'client',
         'root',
         'is_dir',
         'collapsed',
@@ -633,10 +627,10 @@ class S3Item(BaseS3Item):
         session = boto3.session.Session()
         return session.client(
                 's3',
-                region_name=self.user['Region'],
-                aws_access_key_id=self.user['Access Key'],
+                region_name=self.client['Region'],
+                aws_access_key_id=self.client['Access Key'],
                 aws_secret_access_key=keyring.get_password(
-                    'system', f'_s3_{self.user["Access Key"]}_secret_key'
+                    'system', f'_s3_{self.client["Access Key"]}_secret_key'
                 ),
                 config=retry_config,
             )
@@ -645,7 +639,7 @@ class S3Item(BaseS3Item):
 class DigitalOceanItem(BaseS3Item):
 
     __slots__ = (
-        'user',
+        'client',
         'root',
         'is_dir',
         'collapsed',
@@ -673,21 +667,21 @@ class DigitalOceanItem(BaseS3Item):
         session = boto3.session.Session()
         return session.client(
                 's3',
-                region_name=self.user['Region'],
-                endpoint_url=self.user['Endpoint URL'],
-                aws_access_key_id=self.user['Access Key'],
+                region_name=self.client['Region'],
+                endpoint_url=self.client['Endpoint URL'],
+                aws_access_key_id=self.client['Access Key'],
                 aws_secret_access_key=keyring.get_password(
-                    'system', f'_s3_{self.user["Access Key"]}_secret_key'
+                    'system', f'_s3_{self.client["Access Key"]}_secret_key'
                 ),
                 config=retry_config,
             )
 
 
-def new_user(user, root):
+def new_client(client, root):
     # Need to rethink this name
-    _user = user.copy()
-    _user['Root'] = root
-    return _user
+    _client = client.copy()
+    _client['Root'] = root
+    return _client
 
 
 def account_to_item(account, is_dir=False):
@@ -701,12 +695,12 @@ def account_to_item(account, is_dir=False):
         raise ValueError(f'No Item-type for {account["Type"]}')
 
 
-def match_user(users, act_type, root):
-    for user in users:
-        if user['Type'].lower() == act_type.lower():
-            if len(os.path.commonprefix([user['Root'], root])) > 1:
-                _user = user.copy()
-                return _user
+def match_client(clients, act_type, root):
+    for client in clients:
+        if client['Type'].lower() == act_type.lower():
+            if len(os.path.commonprefix([client['Root'], root])) > 1:
+                _client = client.copy()
+                return _client
 
 
 types = {'local': LocalItem, 's3': S3Item, 'digital ocean': DigitalOceanItem}

@@ -177,13 +177,13 @@ class CentralWidgetWindow(QWidget):  # Terrible name
         if last_open_panels:
             self.add_previous_splitter_panels(last_open_panels)
         else:
-            user = settings.new_user(
+            client = settings.setup_client(
                 act_type='Local',
                 root=os.path.expanduser('~'),
                 nickname='Home',
             )
-            settings.update_saved_users(user)
-            self.add_splitter_panel(user)
+            settings.update_saved_clients(client)
+            self.add_splitter_panel(client)
 
     @Slot(list)
     def add_previous_splitter_panels(self, accounts):
