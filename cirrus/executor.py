@@ -52,8 +52,6 @@ class Executor(QObject):
 
     @Slot()
     def start(self):
-        # TODO: Setting the Queue to being built here may be overkill.
-        #       This should be the responsibility of whatever called `start`
         self.__stop = False
         self.database_queue.build_queue()
         if self.current_workers < self.max_workers:
@@ -90,10 +88,14 @@ class Executor(QObject):
             transfer_item.status = TransferStatus.TRANSFERRING
             self.started.emit(transfer_item)
             self.process(transfer_item)
-            if self.__stop:
+            # TODO: Check if everything was processed first
+            if transfer_item.processed == transfer_item.size:
+                self.finished.emit(transfer_item)
+            elif self.__stop:
                 self.stopped.emit(transfer_item)
             else:
-                self.finished.emit(transfer_item)
+                # TODO: Check hash or remove
+                logging.warn(f'{transfer_item:!r} did not fully upload.')
         self.decrease_worker_count()  # semaphore or something
         self.completed.emit()
 
@@ -179,5 +181,6 @@ class Executor(QObject):
     def shutdown(self):
         self.__stop = True
         self.database_queue.stop()
-        self.database_queue.join()
+        if not self.database_queue.join():
+            logging.warn('Could not stop database_queue')
         self.stop()
