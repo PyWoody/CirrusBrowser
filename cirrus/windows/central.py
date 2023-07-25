@@ -33,8 +33,6 @@ class CentralWidgetWindow(QWidget):  # Terrible name
     def __init__(self, parent=None):
         super().__init__(parent)
         self.last_select = utils.date.epoch()
-        self.database = database.Database()
-        self.database.start()
 
         self.num_current_transfers = 0
         self.__started_transfers_to_update = []
