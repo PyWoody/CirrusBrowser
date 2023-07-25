@@ -405,6 +405,7 @@ class DatabaseQueue(QObject):
                 QSqlDatabase.removeDatabase(self.con_thread_name)
             con = QSqlDatabase.cloneDatabase('con', self.con_thread_name)
             if not con.open():
+                self.mutex.unlock()
                 raise exceptions.DatabaseClosedException
             self.mutex.unlock()
             con.transaction()
