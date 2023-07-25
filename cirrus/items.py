@@ -177,11 +177,10 @@ class LocalItem:
         for root, dirs, files in os.walk(path.root):
             _client = new_client(self.client, root)
             root_item = self.create(_client, is_dir=True)
-            dir_items = []
+            yield root_item
             for d in dirs:
                 _client = new_client(self.client, os.path.join(root, d))
-                dir_items.append(self.create(_client, is_dir=True))
-            file_items = []
+                yield self.create(_client, is_dir=True)
             for f in files:
                 fname = os.path.join(root, f)
                 _client = new_client(self.client, fname)
@@ -192,10 +191,7 @@ class LocalItem:
                     mtime=stat.st_mtime,
                     ctime=stat.st_ctime
                 )
-                file_items.append(item)
-            yield root_item
-            yield from dir_items
-            yield from file_items
+                yield item
             return
 
     def makedirs(self, exist_ok=True):
