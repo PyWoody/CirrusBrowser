@@ -678,7 +678,6 @@ class DigitalOceanItem(BaseS3Item):
 
 
 def new_client(client, root):
-    # Need to rethink this name
     _client = client.copy()
     _client['Root'] = root
     return _client
@@ -696,11 +695,15 @@ def account_to_item(account, is_dir=False):
 
 
 def match_client(clients, act_type, root):
+    matches = []
     for client in clients:
         if client['Type'].lower() == act_type.lower():
-            if len(os.path.commonprefix([client['Root'], root])) > 1:
-                _client = client.copy()
-                return _client
+            match_len = len(os.path.commonprefix([client['Root'], root]))
+            if match_len > 1:
+                matches.append((match_len, client))
+    if matches:
+        _, max_match = max(matches, key=lambda x: x[0])
+        return max_match.copy()
 
 
 types = {'local': LocalItem, 's3': S3Item, 'digital ocean': DigitalOceanItem}
