@@ -112,7 +112,6 @@ class TransfersTableModel(QSqlQueryModel):
         return False
 
     def set_data_by_pk(self, pk, column, value, role=Qt.EditRole):
-        # What? pks will be hidden; test this actually works
         index = self.index(0, 0)
         results = self.match(
             index, Qt.DisplayRole, pk, hits=1, flags=Qt.MatchExactly
