@@ -18,152 +18,26 @@ from PySide6.QtCore import (
     Signal,
     Slot,
 )
-from PySide6.QtWidgets import QWidget
-
-# TODO: This was mean to be tmp. Requires total rewrite
-#       Need to re-write using signals/slots for correct updating in main db
-#       Models can't track updates via threads and become stale
-# TODO: transfer_priroity_change
-# NOTE: `add` should really be `insert`
-
-# TODO: Have Database initiate a thread for an iterable queue
-#       of func, args, db_name=the_thread_db_name
-
-_global_mutex = QMutex()
 
 
-def db_logger(func):
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        logging.debug(
-            f'Database: {func.__name__}(args:{args!r}, kwargs:{kwargs!r}'
-        )
-        result = func(*args, **kwargs)
-        logging.debug(
-            f'Database: {func.__name__}(args:{args!r}, '
-            f'kwargs:{kwargs!r} -> {result}'
-        )
-        return result
-    return wrapper
+_GLOBAL_MUTEX = QMutex()
 
 
-class IterableQueue(queue.Queue):
-    SENTINEL = object()
-
-    def __iter__(self):
-        while True:
-            try:
-                item = self.get()
-                if item is self.SENTINEL:
-                    return
-                yield item
-            finally:
-                self.task_done()
-
-    def close(self):
-        self.put(self.SENTINEL)
-
-
-class Database(QWidget):
-    new_task = Signal(object, list)
-    success = Signal(list)
-    failure = Signal(list)
-
-    def __init__(self,  parent=None):
-        super().__init__(parent)
-        self.lock = threading.Lock()
-        self.queue = IterableQueue()
-        self.db_con_name = 'con_db_process'
-        self.started = False
-        self.new_task.connect(self.__add_task_from_thread)
-
-    def start(self):
-        with self.lock:
-            if not self.started:
-                t = threading.Thread(target=self.__process, daemon=True)
-                t.start()
-                self.started = True
-
-    def add_recursive_task(self, func, sources, destination):
-        t = threading.Thread(
-            target=self.__walk,
-            args=(func, sources, destination),
-            daemon=True
-        )
-        t.start()
-
-    def __walk(self, func, sources, destination):
-        # NOTE: This will be an Item func that handles itself
-        num_files = 0
-        output_groups = []
-        for source in sources:
-            for root, dirs, files in os.walk(source):
-                out_path = os.path.abspath(
-                    os.path.join(
-                        # This will need to be when ready
-                        # destination, os.path.relpath(root, start=source)
-                        root
-                    )
-                )
-                out_items = []
-                for f in files:
-                    num_files += 1
-                    # This is an absurd setting but it's clear the select
-                    # that is slowing everything down
-                    if num_files % 100 == 0:
-                        output_groups.append((out_items, out_path))
-                        emittable_output = output_groups.copy()
-                        self.new_task.emit(func, emittable_output)
-                        output_groups = []
-                        out_items = []
-                    out_fname = os.path.join(out_path, f)
-                    client = settings.setup_client(
-                        act_type='Local', root=out_fname
-                    )
-                    out_item = items.LocalItem(client)
-                    out_items.append(out_item)
-                if out_items:
-                    output_groups.append((out_items, out_path))
-        if output_groups:
-            self.new_task.emit(func, output_groups)
-
-    @Slot(object, list)
-    def __add_task_from_thread(self, func, args):
-        self.add_task(target=func, transfer_items=(args,))
-
-    # TODO: Normalize these to only be one or the other
-    @Slot(object, list)
-    @Slot(object, tuple)
-    def add_task(self, *, target, transfer_items):
-        self.queue.put((target, transfer_items))
-
-    def __process(self):
-        with self.lock:
-            if self.db_con_name in QSqlDatabase.connectionNames():
-                QSqlDatabase.removeDatabase(self.db_con_name)
-            con = QSqlDatabase.addDatabase('QSQLITE', self.db_con_name)
-            con.setDatabaseName(settings.DATABASE)
-            if not con.open():
-                raise exceptions.DatabaseClosedException
-        for item in self.queue:
-            if item is None:
-                self.started = False
-                return
-            func, transfer_items = item
-            # TODO: Create this instance at the very top-level in the windows
-            #       so it can be closed and joined
-            # TODO: Emit `started` and `finished` items
-            #       to be dataChanged'd selectRow'd
-            try:
-                # TODO: Just emit the transfer_items. Let the connected funcs
-                #       handle what to do with them.
-                #       Don't make this too complicated here
-                if func(*transfer_items, con_name=self.db_con_name):
-                    self.success.emit(*transfer_items)
-                else:
-                    self.failure.emit(*transfer_items)
-            except RuntimeError as e:
-                logging.warn(f'RuntimeError in __process: {str(e)}')
+def db_logger(log_level=logging.debug):
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            log_level(
+                f'Database: {func.__name__}(args:{args!r}, kwargs:{kwargs!r}'
+            )
+            result = func(*args, **kwargs)
+            log_level(
+                f'Database: {func.__name__}(args:{args!r}, '
+                f'kwargs:{kwargs!r} -> {result}'
+            )
+            return result
+        return wrapper
+    return decorator
 
 
 class DatabaseWorkers:
@@ -235,7 +109,6 @@ class DatabaseWorkers:
 
 
 class DatabaseQueue(QObject):
-    # Terrible name. Should convert the __build_queue to an iterable queue
     add_worker = Signal()
     remove_worker = Signal()
     completed = Signal()
@@ -255,7 +128,13 @@ class DatabaseQueue(QObject):
 
     @Slot()
     def build_queue(self):
-        # This smells like shit
+        """Creates and starts the cls.queue_thread. Will set
+        cls.__stopped to False and cls.queue_being_built to True
+
+        If cls.queue_being_built is already True, does nothing and returns
+
+        Can be called multiple times
+        """
         self.mutex.lock()
         if self.queue_being_built:
             self.mutex.unlock()
@@ -274,18 +153,25 @@ class DatabaseQueue(QObject):
     def __build_queue(self):
         if self.queue_being_built:
             return
+        self.mutex.lock()
         if self.con_thread_name in QSqlDatabase.connectionNames():
             QSqlDatabase.removeDatabase(self.con_thread_name)
         con = QSqlDatabase.cloneDatabase('con', self.con_thread_name)
+        self.mutex.unlock()
         if not con.open():
             raise exceptions.DatabaseClosedException
-        pk_idx, source_idx, destination_idx, size_idx, priority_idx = range(5)
-        source_type_idx, destination_type_idx = 5, 6
-        priority = 100  # Default pend to end
-        transfer_item = None
+        pk_idx = 0
+        source_idx = 1
+        destination_idx = 2
+        size_idx = 3
+        priority_idx = 4
+        source_type_idx = 5
+        destination_type_idx = 6
         while not self.__stopped:
             try:
                 pks_to_update = []
+                # A transaction is necessary even though nothing is being
+                # altered because it releases the query from the DB
                 con.transaction()
                 query = QSqlQuery(con)
                 query.prepare('''
@@ -321,54 +207,35 @@ class DatabaseQueue(QObject):
                     return
                 con.commit()
                 while query.next():
+                    if self.__stopped:
+                        self.mutex.lock()
+                        self.queue_being_built = False
+                        self.mutex.unlock()
+                        return
                     pk = query.value(pk_idx)
                     size = query.value(size_idx)
                     src = query.value(source_idx)
                     src_act_type = query.value(source_type_idx).lower()
-                    # TODO: S3/DO will need the Access Key in the User
-                    #       Hmm...
-                    #       Maybe build a clients_dict from settings
-                    #       check type --> root
-                    #       if not found, rebuild dict
-                    #       if not found again, raise error
-                    src_item_type = items.types[src_act_type]
-                    src_client = items.match_client(
-                        self.clients, src_act_type, src
-                    )
+                    src_client = self.find_client(src_act_type, src)
                     if not src_client:
-                        self.clients = list(settings.saved_clients())
-                        src_client = items.match_client(
-                            self.clients, src_act_type, src
+                        logging.warn(
+                            f'Could not find client for {src}. Skipping'
                         )
-                        if not src_client:
-                            # TODO: Add these to the Error tab
-                            logging.warn(
-                                f'Could not find client for {src}. Skipping'
-                            )
-                            continue
+                        continue
                     src_client['Root'] = src
+                    src_item_type = items.types[src_act_type]
                     src_item = src_item_type(src_client, size=size)
                     dst = query.value(destination_idx)
                     dst_act_type = query.value(destination_type_idx).lower()
-                    dst_item_type = items.types[dst_act_type]
-                    dst_client = items.match_client(
-                        self.clients, dst_act_type, dst
-                    )
+                    dst_client = self.find_client(dst_act_type, dst)
                     if not dst_client:
-                        self.clients = list(settings.saved_clients())
-                        dst_client = items.match_client(
-                            self.clients, dst_act_type, dst
+                        logging.warn(
+                            f'Could not find client for {dst}. Skipping'
                         )
-                        if not dst_client:
-                            # TODO: Add these to the Error tab
-                            logging.warn(
-                                f'Could not find client for {dst}. Skipping'
-                            )
-                            continue
+                        continue
                     dst_client['Root'] = dst
-                    dst_item = dst_item_type(
-                        dst_client, size=size
-                    )
+                    dst_item_type = items.types[dst_act_type]
+                    dst_item = dst_item_type(dst_client, size=size)
                     priority = query.value(priority_idx)
                     priority = 3 if priority == 0 else priority
                     transfer_item = items.TransferItem(
@@ -382,9 +249,7 @@ class DatabaseQueue(QObject):
                     pks_to_update.append(pk)
                     try:
                         # TODO: Tweak the timeout and list at start
-                        timeout = 2
-                        if self.__stopped:
-                            timeout = 0
+                        timeout = 0 if self.__stopped else 2
                         self.hot_queue.put(
                             (priority, transfer_item), timeout=timeout
                         )
@@ -397,7 +262,6 @@ class DatabaseQueue(QObject):
                     self.queue_being_built = False
                     self.mutex.unlock()
                     return
-                # Only modifies the cloned db
                 con.transaction()
                 query = QSqlQuery(con)
                 query.prepare('''
@@ -432,15 +296,39 @@ class DatabaseQueue(QObject):
         self.queue_being_built = False
         self.mutex.unlock()
 
-    def next_item(self):
-        # TODO: When __stopped, clear queue, prioritized Queued Status items
-        #       when restarting hotqueue
+    def find_client(self, act_type, root):
+        """Searches the current settings.saved_clients() list
+        to find an account type that has the longest matched
+        Root to the passed root
+
+        Returns either the found client or None
+        """
+        client = items.match_client(
+            self.clients, act_type, root
+        )
+        if not client:
+            # Update clients in case new client was added
+            self.clients = list(settings.saved_clients())
+            client = items.match_client(
+                self.clients, act_type, root
+            )
+        return client
+
+    def next_item(self, timeout=5.0):
+        """Yields the next item in the cls.hot_queue PriorityQueue
+
+        If an Empty queue Exception occurs and either cls.__stopped is True or
+        cls.queue_being_built is False, a completed signal is emited and the
+        method returns None; else, cls.adjust_workers() is called to reduce
+        the number of available workers as they're outpacing the prodcuers
+        """
+
         while True:
             try:
                 # TODO: Tweak timeout
-                _, item = self.hot_queue.get(timeout=5)
+                _, item = self.hot_queue.get(timeout=timeout)
             except queue.Empty:
-                # Timeout emits an Empty Error
+                # Timeout emits an queue.Empty Error
                 if self.__stopped or not self.queue_being_built:
                     self.completed.emit()
                     return
@@ -473,17 +361,74 @@ class DatabaseQueue(QObject):
             if w.current_bitrate / w.avg_bitrate >= .75:
                 self.add_worker.emit()
 
-    def join(self):
+    def join(self, timeout=0.1, attempts=10):
+        """Attempts to join the queue_thread that controls
+        the cls.__build_queue functionality.
+
+        The default timeout is 0.1 seconds.
+        The default number of attempts if 10
+        """
+
         if self.queue_thread:
-            # Try to do a cleanup
             print(self.workers())
-            self.queue_thread.join(1.0)
+            attempt = 0
+            while self.queue_thread.is_alive():
+                if attempt == attempts:
+                    logging.warn(
+                        'queue_thread could not be '
+                        f'joined after {attempt} attempts'
+                    )
+                    return False
+                self.queue_thread.join(timeout)
+                attempt += 1
+        return True
 
     def stop(self):
+        """Sets the cls.__stopped flag to True.
+
+        Drains the cls.hot_queue of all pending items.
+        Each pending item has its status in the cloned DB reset to
+        TransferStatu.PENDING, allowing them to be restarted
+        """
         self.__stopped = True
+        pks_to_update = []
+        while True:
+            try:
+                _, item = self.hot_queue.get_nowait()
+            except queue.Empty:
+                break
+            else:
+                pks_to_update.append(item.pk)
+        if pks_to_update:
+            self.mutex.lock()
+            if self.con_thread_name in QSqlDatabase.connectionNames():
+                QSqlDatabase.removeDatabase(self.con_thread_name)
+            con = QSqlDatabase.cloneDatabase('con', self.con_thread_name)
+            if not con.open():
+                raise exceptions.DatabaseClosedException
+            self.mutex.unlock()
+            con.transaction()
+            query = QSqlQuery(con)
+            query.prepare('''
+                UPDATE
+                    transfers
+                SET
+                    status = (?)
+                WHERE
+                    pk = (?)
+                ''')
+            for pk in pks_to_update:
+                query.addBindValue(TransferStatus.PENDING.value)
+                query.addBindValue(pk)
+                if not query.exec():
+                    con.rollback()
+                    err_msg = query.lastError().databaseText()
+                    critical_msg('stop', err_msg)
+                    return
+            con.transaction()
 
 
-@db_logger
+@db_logger()
 def add_transfer(*, item, destination, s_type, d_type, con_name='con'):
     # TODO: Check that item, destination doesn't already exist in the DB
     con = QSqlDatabase.database(con_name)
@@ -517,7 +462,7 @@ def add_transfer(*, item, destination, s_type, d_type, con_name='con'):
         return False
 
 
-@db_logger
+@db_logger()
 def drop_rows(*, pks, con_name='con'):
     con = QSqlDatabase.database(con_name)
     if not con.open():
@@ -546,7 +491,7 @@ def drop_rows(*, pks, con_name='con'):
         return False
 
 
-@db_logger
+@db_logger()
 def add_transfers(*, items, destination, s_type, d_type, con_name='con'):
     # TODO: Check that item, destination doesn't already exist in the DB
     con = QSqlDatabase.database(con_name)
@@ -590,7 +535,7 @@ def add_transfers(*, items, destination, s_type, d_type, con_name='con'):
         return False
 
 
-@db_logger
+@db_logger()
 def add_mixed_destination_items(item_destination_groups, con_name='con'):
     # NOTE: Absolutely god-awful name. MVP
     # This is ally really confusing and not good
@@ -625,7 +570,7 @@ def add_mixed_destination_items(item_destination_groups, con_name='con'):
         return False
 
 
-@db_logger
+@db_logger()
 def transfer_started(item, con_name='con'):
     # Initiated by main thread
     con = QSqlDatabase.database(con_name)
@@ -659,7 +604,7 @@ def transfer_started(item, con_name='con'):
         return False
 
 
-@db_logger
+@db_logger()
 def transfer_error(item, con_name='con'):
     # Initiated by main thread
     con = QSqlDatabase.database(con_name)
@@ -693,7 +638,7 @@ def transfer_error(item, con_name='con'):
         return False
 
 
-@db_logger
+@db_logger()
 def transfer_completed(item, con_name='con'):
     # Initiated by main thread
     con = QSqlDatabase.database(con_name)
@@ -726,7 +671,7 @@ def transfer_completed(item, con_name='con'):
         return False
 
 
-@db_logger
+@db_logger()
 def queued_batch_update(pks_to_update, con_name='con'):
     con = QSqlDatabase.database(con_name)
     if not con.open():
@@ -758,7 +703,7 @@ def queued_batch_update(pks_to_update, con_name='con'):
         return False
 
 
-@db_logger
+@db_logger()
 def started_batch_update(transfer_items, con_name='con'):
     # Initiated by main thread
     con = QSqlDatabase.database(con_name)
@@ -793,7 +738,7 @@ def started_batch_update(transfer_items, con_name='con'):
         return False
 
 
-@db_logger
+@db_logger()
 def error_batch_update(transfer_items, con_name='con'):
     # Initiated by main thread
     con = QSqlDatabase.database(con_name)
@@ -828,7 +773,7 @@ def error_batch_update(transfer_items, con_name='con'):
         return False
 
 
-@db_logger
+@db_logger()
 def completed_batch_update(transfer_items, con_name='con'):
     # Initiated by main thread
     con = QSqlDatabase.database(con_name)
@@ -862,7 +807,7 @@ def completed_batch_update(transfer_items, con_name='con'):
         return False
 
 
-@db_logger
+@db_logger()
 def restart_queued_transfer(item, con_name='con'):
     # Initiated by main thread
     con = QSqlDatabase.database(con_name)
@@ -907,14 +852,14 @@ def critical_msg(source, msg, parent=None):
     '''
 
 
-@db_logger
+@db_logger()
 def clean_database(con_name='con'):
     con = QSqlDatabase.database(con_name)
     if not con.open():
         raise exceptions.DatabaseClosedException
     success = False
     try:
-        _global_mutex.lock()
+        _GLOBAL_MUTEX.lock()
         if not con.exec('UPDATE transfers SET status = 0 WHERE status > 0'):
             err_msg = con.lastError().databaseText()
             critical_msg('cleaning', err_msg)
@@ -932,11 +877,11 @@ def clean_database(con_name='con'):
     except Exception as e:
         critical_msg('clean_database E', str(e))
     finally:
-        _global_mutex.unlock()
+        _GLOBAL_MUTEX.unlock()
         return success
 
 
-@db_logger
+@db_logger()
 def setup(*, con_name='con'):
     con = sqlite3.connect(settings.DATABASE)
     cur = con.cursor()
@@ -990,7 +935,7 @@ def flatten(item_destination_groups):
             yield item, destination
 
 
-@db_logger
+@db_logger()
 def add_test_data(cwd=None, *, con_name='con'):
     con = sqlite3.connect(settings.DATABASE)
     cur = con.cursor()
