@@ -17,6 +17,7 @@ from PySide6.QtCore import (
     Qt,
     QDir,
     QItemSelection,
+    QItemSelectionModel,
     QModelIndex,
     QThreadPool,
     Signal,
@@ -88,6 +89,19 @@ class FileListingTreeView(QTreeView):
         acceptable_schemes = {'file', 's3'}
         if urls := event.mimeData().urls():
             if all(i.scheme().lower() in acceptable_schemes for i in urls):
+                self.selectionModel().clearSelection()
+                dest_index = self.indexAt(event.pos())
+                if dest_index.isValid():
+                    if dest_index.model().hasChildren(dest_index):
+                        self.selectionModel().select(
+                            dest_index,
+                            QItemSelectionModel.Select
+                        )
+                    elif (parent := dest_index.parent()).isValid():
+                        self.selectionModel().select(
+                            parent,
+                            QItemSelectionModel.Select
+                        )
                 event.accept()
                 return
         event.ignore()
