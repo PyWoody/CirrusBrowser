@@ -15,7 +15,8 @@ from PySide6.QtCore import (
 
 
 class Executor(QObject):
-    started = Signal(TransferItem)
+    started = Signal()
+    transfer_started = Signal(TransferItem)
     update = Signal(TransferItem)
     finished = Signal(TransferItem)
     stopped = Signal(TransferItem)
@@ -53,6 +54,7 @@ class Executor(QObject):
     @Slot()
     def start(self):
         self.__stop = False
+        self.started.emit()
         self.database_queue.build_queue()
         if self.current_workers < self.max_workers:
             self.fill_thread_pool()
@@ -68,7 +70,7 @@ class Executor(QObject):
         for thread in self.threads:
             if thread.is_alive():
                 logging.info(f'Stopping thread: {thread}')
-                thread.join(timeout=2.0)
+                thread.join(timeout=0.2)
                 if thread.is_alive():
                     logging.info(f'Could not stop thread: {thread}')
                 else:
@@ -79,27 +81,26 @@ class Executor(QObject):
 
     def run(self):
         if self.__stop:
-            self.decrease_worker_count()  # semaphore or something
             return
         for transfer_item in self.database_queue.next_item():
             if self.__stop:
                 self.stopped.emit(transfer_item)
-                continue
+                return
             transfer_item.status = TransferStatus.TRANSFERRING
-            self.started.emit(transfer_item)
+            self.transfer_started.emit(transfer_item)
             self.process(transfer_item)
-            # TODO: Check if everything was processed first
-            if transfer_item.processed == transfer_item.size:
-                self.finished.emit(transfer_item)
-            elif self.__stop:
-                self.stopped.emit(transfer_item)
+            if self.__stop:
+                if transfer_item.processed == transfer_item.size:
+                    self.finished.emit(transfer_item)
+                else:
+                    self.stopped.emit(transfer_item)
+                return
             else:
-                # TODO: Check hash or remove
-                logging.warn(f'{transfer_item:!r} did not fully upload.')
+                self.finished.emit(transfer_item)
         self.decrease_worker_count()  # semaphore or something
         self.completed.emit()
 
-    def process(self, item):
+    def _process(self, item):
         if self.__stop:
             item.status = TransferStatus.QUEUED
             item.message = 'Shutdown'
@@ -129,25 +130,22 @@ class Executor(QObject):
         finally:
             upload_recv.close()
 
-    def _process(self, item):
+    def process(self, item):
         # This is a placeholder function for testing
-        # bitrate = 10 * (1024 * 1024)
-        bitrate = 1024
+        #bitrate = 10 * (1024 * 1024)
+        # bitrate = 1024
         # bitrate = 10
-        # bitrate = 1
+        bitrate = 1
         # bitrate = .1
         completed = 0
         while completed < item.size:
             if self.__stop:
-                item.status = TransferStatus.QUEUED
                 item.message = 'Shutdown'
                 return
             completed += bitrate
             if completed > item.size:
                 completed = item.size
             item.processed = completed
-            progress = (completed / item.size) * 100
-            item.progress = progress
             bitrate += bitrate
             if random.randint(0, 1_000) % 333 == 0:
                 item.status = TransferStatus.ERROR
