@@ -2,6 +2,7 @@ import collections
 import gc
 import logging
 import os
+import time
 import queue
 import sqlite3
 import threading
@@ -219,7 +220,8 @@ class DatabaseQueue(QObject):
                     src_client = self.find_client(src_act_type, src)
                     if not src_client:
                         logging.warn(
-                            f'Could not find client for {src}. Skipping'
+                            'Could not find client for '
+                            f'Source: {src}. Skipping'
                         )
                         continue
                     src_client['Root'] = src
@@ -230,7 +232,8 @@ class DatabaseQueue(QObject):
                     dst_client = self.find_client(dst_act_type, dst)
                     if not dst_client:
                         logging.warn(
-                            f'Could not find client for {dst}. Skipping'
+                            'Could not find client for '
+                            f'Destination: {dst}. Skipping'
                         )
                         continue
                     dst_client['Root'] = dst
@@ -262,6 +265,9 @@ class DatabaseQueue(QObject):
                     self.queue_being_built = False
                     self.mutex.unlock()
                     return
+                # The update has to be done in the same thread.
+                # Signals emitted between threads are Queued and will
+                # not block. There would be a potential for a race condition
                 con.transaction()
                 query = QSqlQuery(con)
                 query.prepare('''
@@ -312,6 +318,8 @@ class DatabaseQueue(QObject):
             client = items.match_client(
                 self.clients, act_type, root
             )
+            if not client:
+                print(self.clients, act_type, root)
         return client
 
     def next_item(self, timeout=5.0):
@@ -332,6 +340,7 @@ class DatabaseQueue(QObject):
                 if self.__stopped or not self.queue_being_built:
                     self.completed.emit()
                     return
+                print('EMPTY')
                 self.adjust_workers()
             else:
                 self.hot_queue.task_done()
@@ -384,49 +393,15 @@ class DatabaseQueue(QObject):
         return True
 
     def stop(self):
-        """Sets the cls.__stopped flag to True.
-
-        Drains the cls.hot_queue of all pending items.
-        Each pending item has its status in the cloned DB reset to
-        TransferStatu.PENDING, allowing them to be restarted
+        """Sets the cls.__stopped flag to True and drains the cls.hot_queue
+        of all pending items.
         """
         self.__stopped = True
-        pks_to_update = []
         while True:
             try:
-                _, item = self.hot_queue.get_nowait()
+                _ = self.hot_queue.get_nowait()
             except queue.Empty:
                 break
-            else:
-                pks_to_update.append(item.pk)
-        if pks_to_update:
-            self.mutex.lock()
-            if self.con_thread_name in QSqlDatabase.connectionNames():
-                QSqlDatabase.removeDatabase(self.con_thread_name)
-            con = QSqlDatabase.cloneDatabase('con', self.con_thread_name)
-            if not con.open():
-                self.mutex.unlock()
-                raise exceptions.DatabaseClosedException
-            self.mutex.unlock()
-            con.transaction()
-            query = QSqlQuery(con)
-            query.prepare('''
-                UPDATE
-                    transfers
-                SET
-                    status = (?)
-                WHERE
-                    pk = (?)
-                ''')
-            for pk in pks_to_update:
-                query.addBindValue(TransferStatus.PENDING.value)
-                query.addBindValue(pk)
-                if not query.exec():
-                    con.rollback()
-                    err_msg = query.lastError().databaseText()
-                    critical_msg('stop', err_msg)
-                    return
-            con.transaction()
 
 
 @db_logger()
@@ -573,6 +548,8 @@ def add_mixed_destination_items(item_destination_groups, con_name='con'):
 
 @db_logger()
 def transfer_started(item, con_name='con'):
+    # Yeah, this should be implemented
+    raise NotImplementedError
     # Initiated by main thread
     con = QSqlDatabase.database(con_name)
     if not con.open():
@@ -717,19 +694,17 @@ def started_batch_update(transfer_items, con_name='con'):
             UPDATE
                 transfers
             SET
-                status = (?), start_time = (?), priority = (?)
+                start_time = (?)
             WHERE
                 pk = (?)
             ''')
         for item in transfer_items:
-            query.addBindValue(item.status.value)
             query.addBindValue(utils.date.to_iso(item.started))
-            query.addBindValue(item.priority.value)
             query.addBindValue(item.pk)
             if not query.exec():
                 con.rollback()
                 err_msg = query.lastError().databaseText()
-                critical_msg('transfer_started', err_msg)
+                critical_msg('started_batch_update', err_msg)
                 return False
         con.commit()
         return True
@@ -769,8 +744,8 @@ def error_batch_update(transfer_items, con_name='con'):
         con.commit()
         return True
     except Exception as e:
-        critical_msg('error_batch_update E', str(e))
         con.rollback()
+        critical_msg('error_batch_update E', str(e))
         return False
 
 
@@ -807,9 +782,8 @@ def completed_batch_update(transfer_items, con_name='con'):
         con.rollback()
         return False
 
-
 @db_logger()
-def restart_queued_transfer(item, con_name='con'):
+def restart_queued_transfers(con_name='con'):
     # Initiated by main thread
     con = QSqlDatabase.database(con_name)
     if not con.open():
@@ -823,13 +797,15 @@ def restart_queued_transfer(item, con_name='con'):
             SET
                 status = (?), start_time = ""
             WHERE
-                pk = (?)
+                status == (?)
         ''')
         query.addBindValue(TransferStatus.PENDING.value)
-        query.addBindValue(item.pk)
+        query.addBindValue(TransferStatus.QUEUED.value)
         if not query.exec():
             con.rollback()
-            err_msg = query.lastError().databaseText()
+            # err_msg = query.lastError().databaseText()
+            print(query.lastError().databaseText())
+            err_msg = query.lastError().driverText()
             critical_msg('restart_queued_transfer', err_msg)
             return False
         con.commit()
@@ -855,13 +831,16 @@ def critical_msg(source, msg, parent=None):
 
 @db_logger()
 def clean_database(con_name='con'):
+    # return True
     con = QSqlDatabase.database(con_name)
     if not con.open():
         raise exceptions.DatabaseClosedException
     success = False
     try:
         _GLOBAL_MUTEX.lock()
+        con.transaction()
         if not con.exec('UPDATE transfers SET status = 0 WHERE status > 0'):
+            con.rollback()
             err_msg = con.lastError().databaseText()
             critical_msg('cleaning', err_msg)
         else:
@@ -873,8 +852,10 @@ def clean_database(con_name='con'):
             '''):
                 success = True
             else:
+                con.rollback()
                 err_msg = con.lastError().databaseText()
                 critical_msg('cleaning', err_msg)
+        con.commit()
     except Exception as e:
         critical_msg('clean_database E', str(e))
     finally:
@@ -951,8 +932,9 @@ def add_test_data(cwd=None, *, con_name='con'):
     if not idx_check.fetchone()[0]:
         raise Exception('Database has not been intiated.')
     batchsize = 0
-    # for root, dirs, files in os.walk(cwd):
-    for root, dirs, files in os.walk(os.path.expanduser('~')):
+    if cwd is None:
+        cwd = os.path.expanduser('~')
+    for root, dirs, files in os.walk(cwd):
         for f in files:
             source = os.path.join(root, f)
             if not os.path.isfile(source):
@@ -961,10 +943,22 @@ def add_test_data(cwd=None, *, con_name='con'):
             size = os.stat(source).st_size
             _ = cur.execute('''
                 INSERT INTO
-                    transfers (source, destination, size)
+                    transfers (
+                        source,
+                        destination,
+                        size,
+                        source_type,
+                        destination_type
+                    )
                 VALUES
-                    (?, ?, ?)
-            ''', (source, destination, size)
+                    (?, ?, ?, ?, ?)''',
+                (
+                    source,
+                    destination,
+                    size,
+                    'local',
+                    'local',
+                )
             )
             batchsize += 1
             if batchsize % 100 == 0:
@@ -985,6 +979,6 @@ if __name__ == '__main__':
         print(f'Batch {i} running...', end='', flush=True)
         add_test_data(args.cwd)
         print('DONE')
-    con = sqlite3.connect(args.database_name)
+    con = sqlite3.connect(settings.DATABASE)
     total_rows = con.execute('SELECT COUNT(*) FROM transfers').fetchone()[0]
     print(f'{total_rows:,} records found in the database.')
