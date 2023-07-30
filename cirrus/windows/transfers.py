@@ -85,40 +85,25 @@ class TransfersWindow(QWidget):
     def select_current_tab_model(self):
         self.tabs.currentWidget().model().select()
 
-    @Slot(TransferItem)
-    def select_row(self, item):
-        self.transfers.model().selectRow(item.row)
-
-    @Slot(list)
-    def select_started_rows(self, transfer_items, start_col=8):
-        widget = self.tabs.currentWidget()
-        if widget is self.transfers:
-            model = widget.model()
-            for item in transfer_items:
-                model.set_data_by_pk(item.pk, start_col, item.started)
-
     @Slot(list)
     def select_completed_rows(self, transfer_items):
         widget = self.tabs.currentWidget()
         model = widget.model()
-        if (utils.date.now() - model.last_invalidate).seconds > 3:
-            if widget is self.transfers:
-                model.select()
-            elif widget is self.errors:
-                if any(
-                    i.status == TransferStatus.ERROR for i in transfer_items
-                ):
-                    model.select()
-            elif widget is self.results:
-                if any(
-                    i.status == TransferStatus.COMPLETED
-                    for i in transfer_items
-                ):
-                    model.select()
+        if widget is self.transfers:
+            model.delta_select()
+        elif widget is self.errors:
+            if any(
+                i.status == TransferStatus.ERROR for i in transfer_items
+            ):
+                model.delta_select()
+        elif widget is self.results:
+            if any(
+                i.status == TransferStatus.COMPLETED
+                for i in transfer_items
+            ):
+                model.delta_select()
         for item in transfer_items:
-            QTimer.singleShot(
-                0, partial(self.remove_transfer_item, item)
-            )
+            self.remove_transfer_item(item)
 
     @Slot(TransferItem)
     def attach_transfer_item(self, item):
@@ -126,4 +111,4 @@ class TransfersWindow(QWidget):
 
     @Slot(TransferItem)
     def remove_transfer_item(self, item):
-        self.transfers.model().transfer_items.pop(item.pk, None)
+        _ = self.transfers.model().transfer_items.pop(item.pk, None)
