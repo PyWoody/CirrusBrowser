@@ -232,6 +232,7 @@ class LocalItem:
     def upload(self, callback=None, overwrite=False, buffer_size=4096):
         try:
             if not overwrite and os.path.isfile(self.root):
+                # TODO: Conflict resolution
                 raise FileExistsError
             written_amount = 0
             data = b''
@@ -463,6 +464,9 @@ class BaseS3Item:
                 )
 
     def upload(self, callback=None, overwrite=False, buffer_size=4096):
+        # TODO: Conflict resolution
+        #       Do a pre-flight settings check, i.e.,
+        #       if not overwrite; check, raise, etc.
         c_type, _ = mimetypes.guess_type(self.key)
         if c_type is None:
             c_type = 'application/octet-stream'

@@ -347,15 +347,6 @@ class TransferItemsDialog(QDialog):
         self.filters = FileFilters(window=self.parent)
         filters_form = self.filters.setup_form()
 
-        # This will be a pop-up
-        # Overwrite (Plain)
-        #   Source is Newer
-        #   Different Size
-        #   Size or Source
-        #   Hash (algo)
-        # Rename (make it simple, stupid, i.e., (n+1).ext)
-        # Skip
-
         self.layout = QVBoxLayout()
         selection_grid = QGridLayout()
         selection_grid.setColumnStretch(1, 1)
@@ -448,3 +439,34 @@ class TransferItemsDialog(QDialog):
     @Slot(bool)
     def toggle_recursive(self):
         self.recursive = False if self.recursive else True
+
+
+class TransferConflictDialog(QDialog):
+
+    def __init__(self, *, parent, session):
+        self.session = session  # Shared mutable data
+        self.setWindowTitle('File Transfer Conflict')
+        self.setSizePolicy(
+            QSizePolicy.Minimum,
+            QSizePolicy.Minimum
+        )
+        self.setMinimumWidth(600)
+        self.setMinimumHeight(200)
+        self.parent = parent
+
+        # Overwrite (Plain)
+        #   Source is Newer
+        #   Different Size
+        #   Size or Source
+        #   Hash (algo)
+        # Rename (make it simple, stupid, i.e., (n+1).ext)
+        # Skip
+        # [ ] Apply to All Transfers
+
+        self.layout = QVBoxLayout()
+        selection_grid = QGridLayout()
+        selection_grid.setColumnStretch(1, 1)
+
+        self.layout.addLayout(selection_grid)
+
+        self.setLayout(self.layout)
