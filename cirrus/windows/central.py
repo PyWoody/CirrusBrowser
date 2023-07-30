@@ -42,7 +42,6 @@ class CentralWidgetWindow(QWidget):  # Terrible name
         # setup DB names
         # Terrible name. Need to re-evaluate
         self.database_queue = database.DatabaseQueue()
-        self.database_queue.build_queue()
 
         # Transfers/Errors/Results Window
         self.transfers_window = TransfersWindow(
@@ -55,6 +54,22 @@ class CentralWidgetWindow(QWidget):  # Terrible name
         self.database_queue.completed.connect(
             self.transfers_window.transfers.model().select
         )
+
+        # Timers
+        self.update_timer = QTimer()
+        self.update_timer.setInterval(500)
+        self.update_timer.timeout.connect(self.update_transfering_rows)
+
+        self.batch_start_timer = QTimer()
+        self.batch_start_timer.setInterval(500)
+        self.batch_start_timer.timeout.connect(self.batch_started_db_update)
+
+        self.batch_finished_timer = QTimer()
+        self.batch_finished_timer.setInterval(1_000)
+        self.batch_finished_timer.timeout.connect(
+            self.batch_completed_db_update
+        )
+
 
         # Views
         # Files View (Splittable)
@@ -70,34 +85,45 @@ class CentralWidgetWindow(QWidget):  # Terrible name
         self.executor = Executor(
             self.database_queue, max_workers=self.max_workers
         )
-        self.executor.started.connect(
+        self.executor.started.connect(database.restart_queued_transfers)
+        self.executor.transfer_started.connect(
             self.transfers_window.attach_transfer_item
         )
-        self.executor.started.connect(self.transfer_started)
+        self.executor.transfer_started.connect(self.transfer_started)
         self.executor.finished.connect(self.transfer_finished)
-        self.executor.stopped.connect(database.restart_queued_transfer)
         self.executor.stopped.connect(
             self.transfers_window.remove_transfer_item
         )
-        self.executor.stopped.connect(self.transfers_window.select_row)
-
-        # Timers
-        self.update_timer = QTimer()
-        self.update_timer.setInterval(1_000)
-        self.update_timer.timeout.connect(self.update_transfering_rows)
-        self.update_timer.start()
-
-        self.batch_start_timer = QTimer()
-        self.batch_start_timer.setInterval(1_000)
-        self.batch_start_timer.timeout.connect(self.batch_started_db_update)
-        self.batch_start_timer.start()
-
-        self.batch_finished_timer = QTimer()
-        self.batch_finished_timer.setInterval(1_000)
-        self.batch_finished_timer.timeout.connect(
-            self.batch_completed_db_update
+        self.executor.completed.connect(
+            self.transfers_window.transfers.model().transfer_items.clear
         )
-        self.batch_finished_timer.start()
+        self.executor.completed.connect(
+            self.transfers_window.select_current_tab_model
+        )
+
+        # Start Timers
+        self.executor.started.connect(
+            self.database_queue.build_queue
+        )
+        self.executor.started.connect(
+            self.update_timer.start
+        )
+        self.executor.started.connect(
+            self.batch_start_timer.start
+        )
+        self.executor.started.connect(
+            self.batch_finished_timer.start
+        )
+        # Stop Timers
+        self.executor.completed.connect(
+            self.batch_finished_timer.stop
+        )
+        self.executor.completed.connect(
+            self.update_timer.stop
+        )
+        self.executor.completed.connect(
+            self.batch_start_timer.stop
+        )
 
         # Should this be a QSplitter instead?
         layout = QVBoxLayout()
@@ -268,6 +294,8 @@ class CentralWidgetWindow(QWidget):  # Terrible name
         QTimer.singleShot(0, self.__update_transfering_rows)
 
     def __update_transfering_rows(self):
+        # TODO: NOTE TESTING
+        # return
         if self.current_transfers:
             current_widget = self.transfers_window.tabs.currentWidget()
             transfers = self.transfers_window.transfers
@@ -281,10 +309,6 @@ class CentralWidgetWindow(QWidget):  # Terrible name
                         model.index(self.num_current_transfers, 4),
                         [Qt.DisplayRole],
                     )
-                )
-                logging.debug(
-                    ('dataChanged emitted for '
-                     f'{len(self.current_transfers)} rows')
                 )
 
     @Slot()
@@ -314,10 +338,6 @@ class CentralWidgetWindow(QWidget):  # Terrible name
 
     def batch_started_db_update(self):
         if self.__started_transfers_to_update:
-            logging.debug(
-                (f'Sending {len(self.__started_transfers_to_update)} '
-                 'items to `database.started_batch_update`')
-            )
             response = database.started_batch_update(
                 self.__started_transfers_to_update
             )
@@ -325,34 +345,14 @@ class CentralWidgetWindow(QWidget):  # Terrible name
                 logging.warn(
                     ('Failed to send '
                      f'{len(self.__started_transfers_to_update)} '
-                     'items to `database.started_batch_update`')
+                     'to `database.started_batch_update`')
                 )
-            logging.debug(
-                (f'Sent {len(self.__started_transfers_to_update)} '
-                 'items to `database.started_batch_update`')
-            )
-            logging.debug(
-                (f'Selecting {len(self.__started_transfers_to_update)} '
-                 'started rows')
-            )
-            self.transfers_window.select_started_rows(
-                self.__started_transfers_to_update
-            )
-            logging.debug(
-                (f'Selected {len(self.__started_transfers_to_update)} '
-                 'started rows')
-            )
             self.__started_transfers_to_update.clear()
 
     def batch_completed_db_update(self):
-        # TODO: Manual calls to the DB shoul be done via the model's setData
         output = []
         if self.__error_transfers_to_update:
             output.extend(self.__error_transfers_to_update)
-            logging.debug(
-                (f'Sending {len(self.__error_transfers_to_update)} '
-                 'to `database.error_batch_update`')
-            )
             response = database.error_batch_update(
                 self.__error_transfers_to_update
             )
@@ -362,18 +362,9 @@ class CentralWidgetWindow(QWidget):  # Terrible name
                      f'{len(self.__error_transfers_to_update)} '
                      'to `database.error_batch_update`')
                 )
-            logging.debug(
-                (f'Sent {len(self.__error_transfers_to_update)} '
-                 'to `database.error_batch_update`')
-            )
-            output.extend(self.__error_transfers_to_update)
             self.__error_transfers_to_update.clear()
         if self.__completed_transfers_to_update:
             output.extend(self.__completed_transfers_to_update)
-            logging.debug(
-                (f'Sending {len(self.__completed_transfers_to_update)} '
-                 'to `database.completed_batch_update`')
-            )
             response = database.completed_batch_update(
                 self.__completed_transfers_to_update
             )
@@ -383,14 +374,7 @@ class CentralWidgetWindow(QWidget):  # Terrible name
                      f'{len(self.__completed_transfers_to_update)} '
                      'to `database.completed_batch_update`')
                 )
-            logging.debug(
-                (f'Sent {len(self.__completed_transfers_to_update)} '
-                 'to `database.completed_batch_update`')
-            )
-            output.extend(self.__completed_transfers_to_update)
             self.__completed_transfers_to_update.clear()
         if output:
-            logging.debug(f'Selecting {len(output)} completed rows')
             self.transfers_window.select_completed_rows(output)
-            logging.debug(f'Selected {len(output)} completed rows')
-            output.clear()
+            del output
