@@ -150,10 +150,10 @@ class ToggleProcessingTransfers(QAction):
             self.setToolTip('Stop Transfers')
             self.setStatusTip('Stop all running and pending transfers.')
         else:
-            self.parent().executor.stop()
             self.setText('Start Transfers')
             self.setToolTip('Start Transfers')
             self.setStatusTip('Start all pending Transfers')
+            self.parent().executor.stop()
 
 
 class ToggleTransferPanel(QAction):
