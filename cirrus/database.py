@@ -2,7 +2,6 @@ import collections
 import gc
 import logging
 import os
-import time
 import queue
 import sqlite3
 import threading
@@ -782,6 +781,7 @@ def completed_batch_update(transfer_items, con_name='con'):
         con.rollback()
         return False
 
+
 @db_logger()
 def restart_queued_transfers(con_name='con'):
     # Initiated by main thread
@@ -951,8 +951,7 @@ def add_test_data(cwd=None, *, con_name='con'):
                         destination_type
                     )
                 VALUES
-                    (?, ?, ?, ?, ?)''',
-                (
+                    (?, ?, ?, ?, ?)''', (
                     source,
                     destination,
                     size,

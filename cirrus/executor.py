@@ -132,7 +132,7 @@ class Executor(QObject):
 
     def process(self, item):
         # This is a placeholder function for testing
-        #bitrate = 10 * (1024 * 1024)
+        # bitrate = 10 * (1024 * 1024)
         # bitrate = 1024
         # bitrate = 10
         bitrate = 1

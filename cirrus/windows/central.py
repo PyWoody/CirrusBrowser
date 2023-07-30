@@ -70,7 +70,6 @@ class CentralWidgetWindow(QWidget):  # Terrible name
             self.batch_completed_db_update
         )
 
-
         # Views
         # Files View (Splittable)
         # TODO: Utilie the saveState, getState from QSplitter

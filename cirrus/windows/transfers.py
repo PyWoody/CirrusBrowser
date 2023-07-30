@@ -1,5 +1,3 @@
-from functools import partial
-
 from cirrus import exceptions, utils, menus
 
 from cirrus.items import TransferItem
@@ -15,7 +13,7 @@ from cirrus.views.transfers import (
     TransfersDatabaseTreeView,
 )
 
-from PySide6.QtCore import Slot, QThreadPool, QTimer
+from PySide6.QtCore import Slot, QThreadPool
 from PySide6.QtSql import QSqlDatabase
 from PySide6.QtWidgets import QMenu, QTabWidget, QVBoxLayout, QWidget
 
