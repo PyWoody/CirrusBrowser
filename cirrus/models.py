@@ -61,10 +61,13 @@ class TransfersTableModel(QSqlQueryModel):
             err_msg = con.lastError().databaseText()
             database.critical_msg('total_row-count', err_msg)
             return 0
+        con.transaction()
         query = QSqlQuery(self.query, con)
         if query.exec():
             if query.last():
+                con.commit()
                 return int(query.at() + 1)
+        con.commit()
         return 0
 
     def remove_all_rows(self):
@@ -109,63 +112,6 @@ class TransfersTableModel(QSqlQueryModel):
         con.rollback()
         err_msg = query.lastError().databaseText()
         database.critical_msg('removeRow', err_msg)
-        return False
-
-    def set_data_by_pk(self, pk, column, value, role=Qt.EditRole):
-        index = self.index(0, 0)
-        results = self.match(
-            index, Qt.DisplayRole, pk, hits=1, flags=Qt.MatchExactly
-        )
-        if results and results[0].isValid():
-            match_index = self.index(results[0].row(), column)
-            return self.setData(match_index, value, role)
-        return False
-
-    def setData(self, index, value, role=Qt.EditRole):
-        if role == Qt.EditRole and index.isValid():
-            con = QSqlDatabase.database(self.con_name)
-            if not con.open():
-                err_msg = con.lastError().databaseText()
-                database.critical_msg('setData', err_msg)
-                return False
-            pk = index.siblingAtColumn(0).data()
-            column = index.column()
-            # NOTE: Double-check columns; find missing
-            if column == 1:
-                col_name = 'source'
-            elif column == 2:
-                col_name = 'destination'
-            elif column == 5:
-                col_name = 'size'
-            elif column == 8:
-                col_name = 'start_time'
-            else:
-                logging.warn(f'Could not find column for {index!r} ({value})')
-                return False
-            con.transaction()
-            query = QSqlQuery(con)
-            query.prepare(f'''
-                UPDATE
-                    transfers
-                SET
-                    {col_name} = (?)
-                WHERE
-                    pk = (?)
-            ''')
-            query.addBindValue(value)
-            query.addBindValue(pk)
-            if query.exec():
-                if not con.commit():
-                    con.rollback()
-                    err_msg = query.lastError().databaseText()
-                    database.critical_msg('setData', err_msg)
-                    return False
-                self.dataChanged.emit(index, index, [Qt.DisplayRole])
-                return True
-            else:
-                con.rollback()
-                err_msg = query.lastError().databaseText()
-                database.critical_msg('setData', err_msg)
         return False
 
     def setQuery(self, *args, **kwargs):
@@ -286,10 +232,13 @@ class ErrorsTableModel(QSqlQueryModel):
             err_msg = con.lastError().databaseText()
             database.critical_msg('total_row-count', err_msg)
             return 0
+        con.transaction()
         query = QSqlQuery(self.query, con)
         if query.exec():
             if query.last():
+                con.commit()
                 return int(query.at() + 1)
+        con.commit()
         return 0
 
     def remove_all_rows(self):
@@ -342,64 +291,6 @@ class ErrorsTableModel(QSqlQueryModel):
         con.rollback()
         err_msg = query.lastError().databaseText()
         database.critical_msg('removeRow', err_msg)
-        return False
-
-    def set_data_by_pk(self, pk, column, value, role=Qt.EditRole):
-        index = self.index(0, 0)
-        results = self.match(
-            index, Qt.DisplayRole, pk, hits=1, flags=Qt.MatchExactly
-        )
-        if results and results[0].isValid():
-            match_index = self.index(results[0].row(), column)
-            return self.setData(match_index, value, role)
-        return False
-
-    def setData(self, index, value, role=Qt.EditRole):
-        raise NotImplementedError
-        if role == Qt.EditRole and index.isValid():
-            con = QSqlDatabase.database(self.con_name)
-            if not con.open():
-                err_msg = con.lastError().databaseText()
-                database.critical_msg('setData', err_msg)
-                return False
-            pk = index.siblingAtColumn(0).data()
-            column = index.column()
-            # NOTE: Double-check columns; find missing
-            if column == 1:
-                col_name = 'source'
-            elif column == 2:
-                col_name = 'destination'
-            elif column == 5:
-                col_name = 'size'
-            elif column == 8:
-                col_name = 'start_time'
-            else:
-                logging.warn(f'Could not find column for {index!r} ({value})')
-                return False
-            con.transaction()
-            query = QSqlQuery(con)
-            query.prepare(f'''
-                UPDATE
-                    transfers
-                SET
-                    {col_name} = (?)
-                WHERE
-                    pk = (?)
-            ''')
-            query.addBindValue(value)
-            query.addBindValue(pk)
-            if query.exec():
-                if not con.commit():
-                    con.rollback()
-                    err_msg = query.lastError().databaseText()
-                    database.critical_msg('setData', err_msg)
-                    return False
-                self.dataChanged.emit(index, index, [Qt.DisplayRole])
-                return True
-            else:
-                con.rollback()
-                err_msg = query.lastError().databaseText()
-                database.critical_msg('setData', err_msg)
         return False
 
     def setQuery(self, *args, **kwargs):
@@ -462,9 +353,12 @@ class CompletedTableModel(QSqlQueryModel):
             database.critical_msg('total_row-count', err_msg)
             return 0
         query = QSqlQuery(self.query, con)
+        con.transaction()
         if query.exec():
             if query.last():
+                con.commit()
                 return int(query.at() + 1)
+        con.commit()
         return 0
 
     def remove_all_rows(self):
@@ -517,64 +411,6 @@ class CompletedTableModel(QSqlQueryModel):
         con.rollback()
         err_msg = query.lastError().databaseText()
         database.critical_msg('removeRow', err_msg)
-        return False
-
-    def set_data_by_pk(self, pk, column, value, role=Qt.EditRole):
-        index = self.index(0, 0)
-        results = self.match(
-            index, Qt.DisplayRole, pk, hits=1, flags=Qt.MatchExactly
-        )
-        if results and results[0].isValid():
-            match_index = self.index(results[0].row(), column)
-            return self.setData(match_index, value, role)
-        return False
-
-    def setData(self, index, value, role=Qt.EditRole):
-        raise NotImplementedError
-        if role == Qt.EditRole and index.isValid():
-            con = QSqlDatabase.database(self.con_name)
-            if not con.open():
-                err_msg = con.lastError().databaseText()
-                database.critical_msg('setData', err_msg)
-                return False
-            pk = index.siblingAtColumn(0).data()
-            column = index.column()
-            # NOTE: Double-check columns; find missing
-            if column == 1:
-                col_name = 'source'
-            elif column == 2:
-                col_name = 'destination'
-            elif column == 5:
-                col_name = 'size'
-            elif column == 8:
-                col_name = 'start_time'
-            else:
-                logging.warn(f'Could not find column for {index!r} ({value})')
-                return False
-            con.transaction()
-            query = QSqlQuery(con)
-            query.prepare(f'''
-                UPDATE
-                    transfers
-                SET
-                    {col_name} = (?)
-                WHERE
-                    pk = (?)
-            ''')
-            query.addBindValue(value)
-            query.addBindValue(pk)
-            if query.exec():
-                if not con.commit():
-                    con.rollback()
-                    err_msg = query.lastError().databaseText()
-                    database.critical_msg('setData', err_msg)
-                    return False
-                self.dataChanged.emit(index, index, [Qt.DisplayRole])
-                return True
-            else:
-                con.rollback()
-                err_msg = query.lastError().databaseText()
-                database.critical_msg('setData', err_msg)
         return False
 
     def setQuery(self, *args, **kwargs):
