@@ -692,10 +692,15 @@ def account_to_item(account, is_dir=False):
 
 def match_client(clients, act_type, root):
     matches = []
+    act_type = act_type.lower()
     for client in clients:
-        if client['Type'].lower() == act_type.lower():
+        if client['Type'].lower() == act_type:
             match_len = len(os.path.commonprefix([client['Root'], root]))
-            if match_len > 1:
+            if act_type == 'local' and match_len:
+                matches.append((match_len, client))
+            elif match_len > 1:
+                # Still don't like
+                # Maybe client['Root'].split('/')[0] == root.split('/')[0]
                 matches.append((match_len, client))
     if matches:
         _, max_match = max(matches, key=lambda x: x[0])
