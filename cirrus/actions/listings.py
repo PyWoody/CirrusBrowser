@@ -324,7 +324,7 @@ class RecursiveAddItemsRunnable(BaseRunnable):
                 batch_size = 1
                 output = []
                 for f in files:
-                    if batch_size % 100 == 0:
+                    if batch_size % 1_000 == 0:
                         cb = partial(
                             database.add_transfers,
                             items=output,
@@ -339,21 +339,21 @@ class RecursiveAddItemsRunnable(BaseRunnable):
                         output = []
                     output.append(f)
                     batch_size += 1
-                if output:
-                    cb = partial(
-                        database.add_transfers,
-                        items=output,
-                        destination=destination,
-                        s_type=self.parent.type,
-                        d_type=self.destination.type,
-                    )
-                    self.signals.callback.emit(cb)
-                    self.signals.select.emit()
-                    if self.process:
-                        self.signals.process_queue.emit()
                 processed += batch_size - 1
             if processed:
                 self.signals.update.emit(f'Added {processed:,} to queue.')
+        if output:
+            cb = partial(
+                database.add_transfers,
+                items=output,
+                destination=destination,
+                s_type=self.parent.type,
+                d_type=self.destination.type,
+            )
+            self.signals.callback.emit(cb)
+            self.signals.select.emit()
+            if self.process:
+                self.signals.process_queue.emit()
         if processed:
             self.signals.update.emit(
                 f'{processed:,} items were added to the queue.'
