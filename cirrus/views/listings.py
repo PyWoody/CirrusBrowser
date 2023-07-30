@@ -188,11 +188,15 @@ class FileListingTreeView(QTreeView):
             # runnable.signals.process_queue.connect(self.start_queue_tmp)
             runnable.signals.select.connect(
                 self.parent().parent().parent().parent(
-                    ).transfers_window.tabs.widget(0).model().select
+                    ).transfers_window.tabs.widget(0).model().delta_select
             )
             runnable.signals.ss_callback.connect(utils.execute_ss_callback)
             runnable.signals.callback.connect(utils.execute_callback)
             runnable.signals.finished.connect(print)
+            runnable.signals.finsihed.connect(
+                self.parent().parent().parent().parent(
+                    ).transfers_window.tabs.widget(0).model().delta_select
+            )
             QThreadPool().globalInstance().start(runnable)
             event.acceptProposedAction()
         else:
