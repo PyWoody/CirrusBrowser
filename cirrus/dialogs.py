@@ -264,7 +264,7 @@ class SearchItemsDialog(QDialog):
         )
 
     @Slot(bool)
-    def toggle_recursive(self):
+    def toggle_recursive(self, checked):
         self.recursive = False if self.recursive else True
 
 
@@ -443,30 +443,114 @@ class TransferItemsDialog(QDialog):
 
 class TransferConflictDialog(QDialog):
 
-    def __init__(self, *, parent, session):
+    def __init__(self, *, parent, session, conflicts=None):
+        super().__init__(parent)
+        if conflicts:
+            conflicts = list(conflicts)
         self.session = session  # Shared mutable data
         self.setWindowTitle('File Transfer Conflict')
         self.setSizePolicy(
             QSizePolicy.Minimum,
             QSizePolicy.Minimum
         )
-        self.setMinimumWidth(600)
+        self.setMinimumWidth(400)
         self.setMinimumHeight(200)
         self.parent = parent
 
-        # Overwrite (Plain)
-        #   Source is Newer
-        #   Different Size
-        #   Size or Source
-        #   Hash (algo)
-        # Rename (make it simple, stupid, i.e., (n+1).ext)
-        # Skip
-        # [ ] Apply to All Transfers
+        self.apply_all = False
+        self.skip_all = False
+
+        selection_grid = QGridLayout()
+        selection_grid.setColumnMinimumWidth(2, 5)
+        selection_grid.setColumnMinimumWidth(4, 5)
+        selection_grid.setColumnStretch(6, 1)
+        self.overwrite_rg = QRadioButton('Overwrite')
+        self.overwrite_rg.setChecked(True)
+        self.source_is_newer_rg = QRadioButton('Source is Newer')
+        self.source_is_newer_rg.setToolTip(
+            'If Last Modification Time is not available, '
+            'Creation Time will be evaluated'
+        )
+        self.different_size_rg = QRadioButton('Different Size')
+        self.hash_rg = QRadioButton('Different Hash')
+        self.rename_rg = QRadioButton('Rename')
+        self.rename_rg.setToolTip(
+            '(e.g., "fileName.jpg" --> "fileName (1).jpg"'
+        )
+        selection_grid.addWidget(
+            QLabel('Select an Option:'),
+            0,  # fromRow
+            0,  # fromColumn
+            5,  # rowSpan
+            1,  # columnSpan
+            alignment=Qt.AlignCenter
+        )
+        selection_grid.addWidget(self.overwrite_rg, 0, 3)
+        selection_grid.addWidget(self.source_is_newer_rg, 1, 3)
+        selection_grid.addWidget(self.different_size_rg, 2, 3)
+        selection_grid.addWidget(self.hash_rg, 3, 3)
+        selection_grid.addWidget(self.rename_rg, 4, 3)
+
+
+        self.button_box = QDialogButtonBox()
+        self.button_box.setOrientation(Qt.Vertical)
+        self.apply_btn = self.button_box.addButton(
+            'Apply', QDialogButtonBox.ButtonRole.AcceptRole
+        )
+        # self.apply_btn.clicked.connect()
+        self.skip_btn = self.button_box.addButton(
+            '&Skip', QDialogButtonBox.ButtonRole.RejectRole
+        )
+        self.skip_all_btn = self.button_box.addButton(
+            'Skip &All', QDialogButtonBox.ButtonRole.RejectRole
+        )
+        self.skip_all_btn.clicked.connect(self.turn_on_skip_all)
+
+        self.button_box.accepted.connect(self.accept)
+        self.button_box.rejected.connect(self.reject)
+
+        selection_grid.addWidget(
+            self.button_box,
+            0,  # fromRow
+            5,  # fromColumn
+            5,  # rowSpan
+            1,  # columnSpan
+            alignment=Qt.AlignCenter,
+        )
+
+        if conflicts is None:
+            conflict_label = QLabel('In the event of a file conflict...')
+        else:
+            conflict_msg = 'The following files have conflicts:'
+            for conflict in conflicts:
+                conflict_msg += f'\n--> {conflict}'
+            conflict_label = QLabel(conflict_msg)
+
+        self.auto_extract_archives = QCheckBox('Extract Archives')
+        self.auto_extract_archives.setToolTip(
+            'Automatically extracts archives at '
+            'destination for this session only.'
+        )
+        self.apply_all_cbox = QCheckBox('Apply to All Transfers')
+        self.apply_all_cbox.setToolTip(
+            'Applies to all future transfers for this session only.'
+        )
+
+        button_box_layout = QHBoxLayout()
+        button_box_layout.addStretch(1)
+        button_box_layout.addWidget(self.apply_all_cbox, alignment=Qt.AlignRight)
+        button_box_layout.addWidget(self.auto_extract_archives, alignment=Qt.AlignRight)
+
+        selection_layout = QVBoxLayout()
+        selection_layout.addWidget(conflict_label)
+        selection_layout.addStretch(1)
+        selection_layout.addLayout(selection_grid)
+        selection_layout.addLayout(button_box_layout)
 
         self.layout = QVBoxLayout()
-        selection_grid = QGridLayout()
-        selection_grid.setColumnStretch(1, 1)
-
-        self.layout.addLayout(selection_grid)
-
+        self.layout.addLayout(selection_layout)
         self.setLayout(self.layout)
+
+    @Slot(bool)
+    def turn_on_skip_all(self, checked):
+        self.skip_all = True
