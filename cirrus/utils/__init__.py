@@ -54,6 +54,15 @@ def execute_ss_callback(func):
         logging.warn(f'Failed to execute {func!r} with error {e}')
 
 
+def find_parent(self, parent_type):
+    if parent := self.parent():
+        if parent is self:
+            return
+        if type(parent) == parent_type:
+            return parent
+        return find_parent(parent, parent_type)
+
+
 class long_running_action:
 
     timer_events = dict()
