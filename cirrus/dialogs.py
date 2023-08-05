@@ -445,8 +445,6 @@ class TransferConflictDialog(QDialog):
 
     def __init__(self, *, parent, session, conflicts=None):
         super().__init__(parent)
-        if conflicts:
-            conflicts = list(conflicts)
         self.session = session  # Shared mutable data
         self.setWindowTitle('File Transfer Conflict')
         self.setSizePolicy(
@@ -490,7 +488,6 @@ class TransferConflictDialog(QDialog):
         selection_grid.addWidget(self.different_size_rg, 2, 3)
         selection_grid.addWidget(self.hash_rg, 3, 3)
         selection_grid.addWidget(self.rename_rg, 4, 3)
-
 
         self.button_box = QDialogButtonBox()
         self.button_box.setOrientation(Qt.Vertical)
@@ -538,8 +535,8 @@ class TransferConflictDialog(QDialog):
 
         button_box_layout = QHBoxLayout()
         button_box_layout.addStretch(1)
-        button_box_layout.addWidget(self.apply_all_cbox, alignment=Qt.AlignRight)
-        button_box_layout.addWidget(self.auto_extract_archives, alignment=Qt.AlignRight)
+        button_box_layout.addWidget(self.apply_all_cbox)
+        button_box_layout.addWidget(self.auto_extract_archives)
 
         selection_layout = QVBoxLayout()
         selection_layout.addWidget(conflict_label)
