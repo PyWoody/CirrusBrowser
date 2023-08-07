@@ -12,6 +12,19 @@ ICON_DIR = os.path.join(ROOT, 'icons')
 SETUP = os.path.join(DATA_DIR, 'setup.json')
 DATABASE = os.path.join(DATA_DIR, 'cirrus.db')
 LOG = os.path.join(ROOT, 'logs', 'cirrus.log')
+SESSION_DATA = dict()  # TODO: switch to protected class approach
+
+
+def session(key, *, value=None, default=None):
+    if value is None:
+        RW_LOCK.lockForRead()
+        value = SESSION_DATA.get(key, default)
+        RW_LOCK.unlock()
+        return value
+    else:
+        RW_LOCK.lockForWrite()
+        SESSION_DATA[key] = value
+        RW_LOCK.unlock()
 
 
 def read_settings_data(no_lock=False):
