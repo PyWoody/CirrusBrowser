@@ -4,6 +4,7 @@ import os
 from functools import partial
 
 from cirrus import actions, items, settings, utils
+from cirrus.dialogs import TransferConflictDialog
 from cirrus.items import LocalItem
 from cirrus.models import (
     DigitalOceanFilesTreeModel,
@@ -80,17 +81,30 @@ class FileListingTreeView(QTreeView):
     @Slot(Qt.DropActions)
     def startDrag(self, actions):
         if indexes := self.selectedIndexes():
+            # Root is being incorrectly selected here
             drag = QDrag(self)
             drag.setMimeData(self.model().mimeData(indexes))
             _ = drag.exec(Qt.CopyAction | Qt.MoveAction, Qt.CopyAction)
 
     @Slot(QDragMoveEvent)
     def dragMoveEvent(self, event):
-        acceptable_schemes = {'file', 's3'}
         if urls := event.mimeData().urls():
+            acceptable_schemes = {'file', 's3'}
             if all(i.scheme().lower() in acceptable_schemes for i in urls):
-                self.selectionModel().clearSelection()
-                dest_index = self.indexAt(event.pos())
+                if event.source() is not self:
+                    self.selectionModel().clearSelection()
+                else:
+                    currently_selected_urls = self.model().mimeData(
+                        self.selectedIndexes()
+                    ).urls()
+                    for index in self.selectedIndexes():
+                        if index.column() == 0:
+                            url = self.model().mimeData([index]).urls()[0]
+                            if url not in urls:
+                                self.selectionModel().select(
+                                    index, QItemSelectionModel.Deselect
+                                )
+                dest_index = self.indexAt(event.position().toPoint())
                 if dest_index.isValid():
                     if dest_index.model().hasChildren(dest_index):
                         self.selectionModel().select(
@@ -115,7 +129,7 @@ class FileListingTreeView(QTreeView):
                 print('Not implemented yet')
                 event.ignore()
                 return
-            dest_index = self.indexAt(event.pos())
+            dest_index = self.indexAt(event.position().toPoint())
             if dest_index.isValid():
                 if dest_index.model().hasChildren(dest_index):
                     dest_path = dest_index.model().filePath(dest_index)
@@ -158,6 +172,7 @@ class FileListingTreeView(QTreeView):
                 model = event.source().model()
                 source_type = items.types[event.source().type.lower()]
                 for i in event.source().selectedIndexes():
+                    print(i)
                     if i.column() == 0:
                         if item := model.item_from_index(i):
                             if item.is_dir:
@@ -182,25 +197,40 @@ class FileListingTreeView(QTreeView):
                 )
                 event.ignore()
                 return
-            runnable = action.runnable()
-            runnable.signals.aborted.connect(partial(print, 'Aborted!'))
-            runnable.signals.update.connect(print)
-            # runnable.signals.process_queue.connect(self.start_queue_tmp)
-            runnable.signals.select.connect(
-                self.parent().parent().parent().parent(
-                    ).transfers_window.tabs.widget(0).model().delta_select
-            )
-            runnable.signals.ss_callback.connect(utils.execute_ss_callback)
-            runnable.signals.callback.connect(utils.execute_callback)
-            runnable.signals.finished.connect(print)
-            runnable.signals.finsihed.connect(
-                self.parent().parent().parent().parent(
-                    ).transfers_window.tabs.widget(0).model().delta_select
-            )
-            QThreadPool().globalInstance().start(runnable)
+            print(files, folders)
+            if not settings.session('Apply All Transfers'):
+                # TODO: Prevent closing; add a Cancel button instead
+                conflict_dialog = TransferConflictDialog(parent=self)
+                conflict_dialog.accepted.connect(
+                    partial(self.process_action, action)
+                )
+                conflict_dialog.rejected.connect(
+                    partial(print, 'Transfer Rejected')
+                )
+                conflict_dialog.show()
+            else:
+                self.process_action(action)
             event.acceptProposedAction()
         else:
             event.ignore()
+
+    def process_action(self, action, result):
+        runnable = action.runnable()
+        runnable.signals.aborted.connect(partial(print, 'Aborted!'))
+        runnable.signals.update.connect(print)
+        # runnable.signals.process_queue.connect(self.start_queue_tmp)
+        runnable.signals.select.connect(
+            self.parent().parent().parent().parent(
+                ).transfers_window.tabs.widget(0).model().delta_select
+        )
+        runnable.signals.ss_callback.connect(utils.execute_ss_callback)
+        runnable.signals.callback.connect(utils.execute_callback)
+        runnable.signals.finished.connect(print)
+        runnable.signals.finished.connect(
+            self.parent().parent().parent().parent(
+                ).transfers_window.tabs.widget(0).model().delta_select
+        )
+        QThreadPool().globalInstance().start(runnable)
 
     def create_navigation_bar(self):
         if self.location_bar is not None:
