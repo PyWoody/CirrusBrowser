@@ -443,40 +443,72 @@ class TransferItemsDialog(QDialog):
 
 class TransferConflictDialog(QDialog):
 
-    def __init__(self, *, parent, session, conflicts=None):
+    def __init__(self, *, parent, conflicts=None):
         super().__init__(parent)
-        self.session = session  # Shared mutable data
+        self.setModal(True)
         self.setWindowTitle('File Transfer Conflict')
         self.setSizePolicy(
             QSizePolicy.Minimum,
             QSizePolicy.Minimum
         )
-        self.setMinimumWidth(400)
+        self.setMinimumWidth(300)
         self.setMinimumHeight(200)
         self.parent = parent
 
         self.apply_all = False
         self.skip_all = False
 
+        self.explanation_label = QLabel()
+        self.explanation_label.setWordWrap(True)
         selection_grid = QGridLayout()
         selection_grid.setColumnMinimumWidth(2, 5)
         selection_grid.setColumnMinimumWidth(4, 5)
         selection_grid.setColumnStretch(6, 1)
         self.overwrite_rg = QRadioButton('Overwrite')
+        self.overwrite_rg.toggled.connect(
+            partial(
+                self.update_explanation_label,
+                'The source file will overwrite the '
+                'destination file on any conflict.'
+            )
+        )
         self.overwrite_rg.setChecked(True)
         self.source_is_newer_rg = QRadioButton('Source is Newer')
-        self.source_is_newer_rg.setToolTip(
-            'If Last Modification Time is not available, '
-            'Creation Time will be evaluated'
+        self.source_is_newer_rg.toggled.connect(
+            partial(
+                self.update_explanation_label,
+                'If the source file has a newer Last Modification time, '
+                'it will overwite the destination file.\n'
+                'If Last Modification Time is not available, '
+                'Creation Time will used',
+            )
         )
         self.different_size_rg = QRadioButton('Different Size')
+        self.different_size_rg.toggled.connect(
+            partial(
+                self.update_explanation_label,
+                'If either file has a different size in bytes, '
+                'the source will overwrite the destination.'
+            )
+        )
         self.hash_rg = QRadioButton('Different Hash')
+        self.hash_rg.toggled.connect(
+            partial(
+                self.update_explanation_label,
+                'An MD5 hash will be calculated for both files. '
+                'If there is a discrepancy, the source will overwrite '
+                'the destination file.'
+            )
+        )
         self.rename_rg = QRadioButton('Rename')
-        self.rename_rg.setToolTip(
-            '(e.g., "fileName.jpg" --> "fileName (1).jpg"'
+        self.rename_rg.toggled.connect(
+            partial(
+                self.update_explanation_label,
+                'For example, "fileName.jpg" will become "fileName (1).jpg"'
+            )
         )
         selection_grid.addWidget(
-            QLabel('Select an Option:'),
+            self.explanation_label,
             0,  # fromRow
             0,  # fromColumn
             5,  # rowSpan
@@ -494,7 +526,6 @@ class TransferConflictDialog(QDialog):
         self.apply_btn = self.button_box.addButton(
             'Apply', QDialogButtonBox.ButtonRole.AcceptRole
         )
-        # self.apply_btn.clicked.connect()
         self.skip_btn = self.button_box.addButton(
             '&Skip', QDialogButtonBox.ButtonRole.RejectRole
         )
@@ -502,6 +533,9 @@ class TransferConflictDialog(QDialog):
             'Skip &All', QDialogButtonBox.ButtonRole.RejectRole
         )
         self.skip_all_btn.clicked.connect(self.turn_on_skip_all)
+        self.cancel_btn = self.button_box.addButton(
+            '&Cancel', QDialogButtonBox.ButtonRole.RejectRole
+        )
 
         self.button_box.accepted.connect(self.accept)
         self.button_box.rejected.connect(self.reject)
@@ -517,6 +551,7 @@ class TransferConflictDialog(QDialog):
 
         if conflicts is None:
             conflict_label = QLabel('In the event of a file conflict...')
+            self.skip_btn.hide()
         else:
             conflict_msg = 'The following files have conflicts:'
             for conflict in conflicts:
@@ -551,3 +586,7 @@ class TransferConflictDialog(QDialog):
     @Slot(bool)
     def turn_on_skip_all(self, checked):
         self.skip_all = True
+
+    def update_explanation_label(self, msg, checked):
+        if checked:
+            self.explanation_label.setText(msg)
