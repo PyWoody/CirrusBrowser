@@ -25,9 +25,6 @@ class MainWindow(QMainWindow):
 
         self.status_bar = self.statusBar()
 
-        # Session data/settings
-        self.session = dict()  # keep an eye out for naming conflicts
-
         # Actions
         toggle_transfers_action = actions.menus.ToggleProcessingTransfers(
             self.central_widget
@@ -78,7 +75,6 @@ class MainWindow(QMainWindow):
                 self.central_widget.menu_item_selected_cb, search_all_action
             )
         )
-        actions_menu.addSeparator()
         actions_menu.addAction(search_all_action)
         actions_menu.addMenu(
             actions.menus.BuildSearchMenu(self.central_widget)
