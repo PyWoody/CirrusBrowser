@@ -81,7 +81,6 @@ class FileListingTreeView(QTreeView):
     @Slot(Qt.DropActions)
     def startDrag(self, actions):
         if indexes := self.selectedIndexes():
-            # Root is being incorrectly selected here
             drag = QDrag(self)
             drag.setMimeData(self.model().mimeData(indexes))
             _ = drag.exec(Qt.CopyAction | Qt.MoveAction, Qt.CopyAction)
@@ -94,9 +93,6 @@ class FileListingTreeView(QTreeView):
                 if event.source() is not self:
                     self.selectionModel().clearSelection()
                 else:
-                    currently_selected_urls = self.model().mimeData(
-                        self.selectedIndexes()
-                    ).urls()
                     for index in self.selectedIndexes():
                         if index.column() == 0:
                             url = self.model().mimeData([index]).urls()[0]
@@ -125,10 +121,6 @@ class FileListingTreeView(QTreeView):
         # event.source() == originator
         # self == destination
         if urls := event.mimeData().urls():
-            if self is event.source():
-                print('Not implemented yet')
-                event.ignore()
-                return
             dest_index = self.indexAt(event.position().toPoint())
             if dest_index.isValid():
                 if dest_index.model().hasChildren(dest_index):
@@ -171,14 +163,19 @@ class FileListingTreeView(QTreeView):
                 parent = event.source()
                 model = event.source().model()
                 source_type = items.types[event.source().type.lower()]
+                url_paths = {i.path() for i in urls}
                 for i in event.source().selectedIndexes():
-                    print(i)
                     if i.column() == 0:
                         if item := model.item_from_index(i):
-                            if item.is_dir:
-                                folders.append(item)
-                            else:
-                                files.append(item)
+                            # Prevents the root/location bar path
+                            # from being added as well. For some reason
+                            # selectedIndexes started caputring this as well
+                            if item.root != parent.root:
+                                if item.root in url_paths:
+                                    if item.is_dir:
+                                        folders.append(item)
+                                    else:
+                                        files.append(item)
             if files and folders:
                 action = actions.listings.QueueRecursiveItemsAction(
                     parent, files, folders, destination
@@ -197,9 +194,7 @@ class FileListingTreeView(QTreeView):
                 )
                 event.ignore()
                 return
-            print(files, folders)
             if not settings.session('Apply All Transfers'):
-                # TODO: Prevent closing; add a Cancel button instead
                 conflict_dialog = TransferConflictDialog(parent=self)
                 conflict_dialog.accepted.connect(
                     partial(self.process_action, action)
@@ -214,7 +209,7 @@ class FileListingTreeView(QTreeView):
         else:
             event.ignore()
 
-    def process_action(self, action, result):
+    def process_action(self, action):
         runnable = action.runnable()
         runnable.signals.aborted.connect(partial(print, 'Aborted!'))
         runnable.signals.update.connect(print)
@@ -228,7 +223,7 @@ class FileListingTreeView(QTreeView):
         runnable.signals.finished.connect(print)
         runnable.signals.finished.connect(
             self.parent().parent().parent().parent(
-                ).transfers_window.tabs.widget(0).model().delta_select
+                ).transfers_window.tabs.widget(0).model().select
         )
         QThreadPool().globalInstance().start(runnable)
 
