@@ -311,6 +311,8 @@ class RecursiveAddItemsRunnable(BaseRunnable):
             self.signals.select.emit()
             if self.process:
                 self.signals.process_queue.emit()
+        output = []
+        batch_size = 1
         for folder in self.folders:
             processed = 0
             for root, dirs, files in folder.walk():
@@ -321,8 +323,6 @@ class RecursiveAddItemsRunnable(BaseRunnable):
                         os.path.relpath(root.root, start=folder.root)
                     )
                 )
-                batch_size = 1
-                output = []
                 for f in files:
                     if batch_size % 1_000 == 0:
                         cb = partial(
@@ -339,7 +339,7 @@ class RecursiveAddItemsRunnable(BaseRunnable):
                         output = []
                     output.append(f)
                     batch_size += 1
-                processed += batch_size - 1
+                    processed += 1
             if processed:
                 self.signals.update.emit(f'Added {processed:,} to queue.')
         if output:
