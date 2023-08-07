@@ -2,7 +2,7 @@ import os
 
 from functools import partial
 
-from cirrus import items, utils, windows
+from cirrus import items, settings, utils, windows
 from cirrus.widgets import FlowLayout, FileFilters
 
 from PySide6.QtCore import Qt, Slot
@@ -550,7 +550,7 @@ class TransferConflictDialog(QDialog):
         )
 
         if conflicts is None:
-            conflict_label = QLabel('In the event of a file conflict...')
+            conflict_label = QLabel('In the event of file conflicts...')
             self.skip_btn.hide()
         else:
             conflict_msg = 'The following files have conflicts:'
@@ -563,6 +563,8 @@ class TransferConflictDialog(QDialog):
             'Automatically extracts archives at '
             'destination for this session only.'
         )
+        if settings.session('Extract Archives'):
+            self.auto_extract_archives.setChecked(True)
         self.apply_all_cbox = QCheckBox('Apply to All Transfers')
         self.apply_all_cbox.setToolTip(
             'Applies to all future transfers for this session only.'
@@ -579,6 +581,8 @@ class TransferConflictDialog(QDialog):
         selection_layout.addLayout(selection_grid)
         selection_layout.addLayout(button_box_layout)
 
+        self.accepted.connect(self.update_global_settings)
+
         self.layout = QVBoxLayout()
         self.layout.addLayout(selection_layout)
         self.setLayout(self.layout)
@@ -586,6 +590,17 @@ class TransferConflictDialog(QDialog):
     @Slot(bool)
     def turn_on_skip_all(self, checked):
         self.skip_all = True
+
+    def update_global_settings(self):
+        ea_checked = self.auto_extract_archives.isChecked()
+        ea_setting = settings.session('Extract Archives', default=False)
+        if ea_checked != ea_setting:
+            settings.session('Extract Archives', value=ea_checked)
+        aa_setting = settings.session(
+            'Apply All Transfers', default=False
+        )
+        if aa_setting is False and self.apply_all_cbox.isChecked():
+            settings.session('Apply All Transfers', value=True)
 
     def update_explanation_label(self, msg, checked):
         if checked:
