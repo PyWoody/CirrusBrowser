@@ -5,7 +5,7 @@ from functools import partial
 from cirrus import items, settings, utils, windows
 from cirrus.widgets import FlowLayout, FileFilters
 
-from PySide6.QtCore import Qt, Slot
+from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtWidgets import (
     QButtonGroup,
     QCheckBox,
@@ -443,6 +443,8 @@ class TransferItemsDialog(QDialog):
 
 class TransferConflictDialog(QDialog):
 
+    selection_changed = Signal(str, bool)
+
     def __init__(self, *, parent, conflicts=None):
         super().__init__(parent)
         self.setModal(True)
@@ -466,14 +468,19 @@ class TransferConflictDialog(QDialog):
         selection_grid.setColumnStretch(6, 1)
         self.overwrite_rg = QRadioButton('Overwrite')
         self.overwrite_rg.toggled.connect(
+            partial(self.selection_changed.emit, 'overwrite')
+        )
+        self.overwrite_rg.toggled.connect(
             partial(
                 self.update_explanation_label,
                 'The source file will overwrite the '
                 'destination file on any conflict.'
             )
         )
-        self.overwrite_rg.setChecked(True)
         self.source_is_newer_rg = QRadioButton('Source is Newer')
+        self.source_is_newer_rg.toggled.connect(
+            partial(self.selection_changed.emit, 'newer')
+        )
         self.source_is_newer_rg.toggled.connect(
             partial(
                 self.update_explanation_label,
@@ -485,6 +492,9 @@ class TransferConflictDialog(QDialog):
         )
         self.different_size_rg = QRadioButton('Different Size')
         self.different_size_rg.toggled.connect(
+            partial(self.selection_changed.emit, 'size')
+        )
+        self.different_size_rg.toggled.connect(
             partial(
                 self.update_explanation_label,
                 'If either file has a different size in bytes, '
@@ -492,6 +502,9 @@ class TransferConflictDialog(QDialog):
             )
         )
         self.hash_rg = QRadioButton('Different Hash')
+        self.hash_rg.toggled.connect(
+            partial(self.selection_changed.emit, 'hash')
+        )
         self.hash_rg.toggled.connect(
             partial(
                 self.update_explanation_label,
@@ -501,6 +514,9 @@ class TransferConflictDialog(QDialog):
             )
         )
         self.rename_rg = QRadioButton('Rename')
+        self.rename_rg.toggled.connect(
+            partial(self.selection_changed.emit, 'rename')
+        )
         self.rename_rg.toggled.connect(
             partial(
                 self.update_explanation_label,
@@ -528,6 +544,9 @@ class TransferConflictDialog(QDialog):
         )
         self.skip_btn = self.button_box.addButton(
             '&Skip', QDialogButtonBox.ButtonRole.RejectRole
+        )
+        self.skip_btn.toggled.connect(
+            partial(self.selection_changed.emit, 'skip')
         )
         self.skip_all_btn = self.button_box.addButton(
             'Skip &All', QDialogButtonBox.ButtonRole.RejectRole
@@ -587,9 +606,16 @@ class TransferConflictDialog(QDialog):
         self.layout.addLayout(selection_layout)
         self.setLayout(self.layout)
 
+    def show(self, *args, **kwargs):
+        # Causes .toggled to be emitted, which in turn causes any connected
+        # slots to update their respective conflict value
+        self.overwrite_rg.setChecked(True)
+        return super().show(*args, **kwargs)
+
     @Slot(bool)
     def turn_on_skip_all(self, checked):
         self.skip_all = True
+        self.selection_chagned.emit('skip')
 
     def update_global_settings(self):
         ea_checked = self.auto_extract_archives.isChecked()
