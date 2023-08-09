@@ -8,3 +8,11 @@ class ItemIsNotADirectory(Exception):
 
 class CallbackError(Exception):
     pass
+
+
+class ConflictException(Exception):
+    pass
+
+
+class UnexpectedItemTypeException(Exception):
+    pass
