@@ -167,6 +167,7 @@ class DatabaseQueue(QObject):
         priority_idx = 4
         source_type_idx = 5
         destination_type_idx = 6
+        conflict_idx = 7
         while not self.__stopped:
             try:
                 pks_to_update = []
@@ -182,7 +183,8 @@ class DatabaseQueue(QObject):
                         size,
                         priority,
                         source_type,
-                        destination_type
+                        destination_type,
+                        conflict
                     FROM
                         transfers
                     WHERE
@@ -238,6 +240,7 @@ class DatabaseQueue(QObject):
                     dst_client['Root'] = dst
                     dst_item_type = items.types[dst_act_type]
                     dst_item = dst_item_type(dst_client, size=size)
+                    conflict = query.value(conflict_idx).lower().strip()
                     priority = query.value(priority_idx)
                     priority = 3 if priority == 0 else priority
                     transfer_item = items.TransferItem(
@@ -247,6 +250,7 @@ class DatabaseQueue(QObject):
                         size,
                         status=TransferStatus.QUEUED,
                         priority=TransferPriority(priority),
+                        conflict=conflict,
                     )
                     pks_to_update.append(pk)
                     try:
@@ -404,26 +408,41 @@ class DatabaseQueue(QObject):
 
 
 @db_logger()
-def add_transfer(*, item, destination, s_type, d_type, con_name='con'):
-    # TODO: Check that item, destination doesn't already exist in the DB
+def add_transfer(
+    *,
+    item,
+    destination,
+    s_type,
+    d_type,
+    conflict_resolution=None,
+    con_name='con',
+):
     con = QSqlDatabase.database(con_name)
     if not con.open():
         raise exceptions.DatabaseClosedException
+    if conflict_resolution is None:
+        conflict_resolution = 'skip'
     try:
         con.transaction()
         query = QSqlQuery(con)
         query.prepare('''
             INSERT INTO
                 transfers (
-                    source, destination, size, source_type, destination_type
+                    source,
+                    destination,
+                    size,
+                    source_type,
+                    destination_type,
+                    conflict
                 )
             VALUES
-                (?, ?, ?, ?, ?)''')
+                (?, ?, ?, ?, ?, ?)''')
         query.addBindValue(item.root)
         query.addBindValue(destination)
         query.addBindValue(item.size)
         query.addBindValue(s_type)
         query.addBindValue(d_type)
+        query.addBindValue(conflict_resolution)
         if not query.exec():
             con.rollback()
             err_msg = query.lastError().databaseText()
@@ -467,21 +486,35 @@ def drop_rows(*, pks, con_name='con'):
 
 
 @db_logger()
-def add_transfers(*, items, destination, s_type, d_type, con_name='con'):
-    # TODO: Check that item, destination doesn't already exist in the DB
+def add_transfers(
+    *,
+    items,
+    destination,
+    s_type,
+    d_type,
+    conflict_resolution=None,
+    con_name='con',
+):
     con = QSqlDatabase.database(con_name)
     if not con.open():
         raise exceptions.DatabaseClosedException
+    if conflict_resolution is None:
+        conflict_resolution = 'skip'
     try:
         con.transaction()
         query = QSqlQuery(con)
         query.prepare('''
             INSERT INTO
                 transfers (
-                    source, destination, size, source_type, destination_type
+                    source,
+                    destination,
+                    size,
+                    source_type,
+                    destination_type,
+                    conflict
                 )
             VALUES
-                (?, ?, ?, ?, ?)''')
+                (?, ?, ?, ?, ?, ?)''')
         for item in items:
             final_destination = os.path.join(
                 destination, os.path.split(item.root)[1]
@@ -491,6 +524,7 @@ def add_transfers(*, items, destination, s_type, d_type, con_name='con'):
             query.addBindValue(item.size)
             query.addBindValue(s_type)
             query.addBindValue(d_type)
+            query.addBindValue(conflict_resolution)
             if not query.exec():
                 con.rollback()
                 err_msg = query.lastError().driverText()
@@ -511,26 +545,33 @@ def add_transfers(*, items, destination, s_type, d_type, con_name='con'):
 
 
 @db_logger()
-def add_mixed_destination_items(item_destination_groups, con_name='con'):
+def add_mixed_destination_items(
+    item_destination_groups,
+    *,
+    conflict_resolution=None,
+    con_name='con',
+):
     # NOTE: Absolutely god-awful name. MVP
-    # This is ally really confusing and not good
-    # TODO: Check that item, destination doesn't already exist in the DB
+    # This is all really confusing and not good
     con = QSqlDatabase.database(con_name)
     if not con.open():
         raise exceptions.DatabaseClosedException
+    if conflict_resolution is None:
+        conflict_resolution = 'skip'
     try:
         con.transaction()
         query = QSqlQuery(con)
         query.prepare('''
             INSERT INTO
-                transfers (source, destination, size)
+                transfers (source, destination, size, conflict)
             VALUES
-                (?, ?, ?)''')
+                (?, ?, ?, ?)''')
         for db_items, destination in item_destination_groups:
             for item in db_items:
                 query.addBindValue(item.root)
                 query.addBindValue(destination)
                 query.addBindValue(item.size)
+                query.addBindValue(conflict_resolution)
                 if not query.exec():
                     con.rollback()
                     # driver_msg = query.lastError().driverText()
@@ -880,7 +921,8 @@ def setup(*, con_name='con'):
             end_time TEXT,
             error_message TEXT,
             source_type TEXT NOT NULL,
-            destination_type TEXT NOT NULL
+            destination_type TEXT NOT NULL,
+            conflict TEXT NOT NULL
         );''')
     idx_check = cur.execute('''
         SELECT
@@ -918,7 +960,14 @@ def flatten(item_destination_groups):
 
 
 @db_logger()
-def add_test_data(cwd=None, *, con_name='con'):
+def add_test_data(
+    cwd=None,
+    *,
+    conflict_resolution=None,
+    con_name='con',
+):
+    if conflict_resolution is None:
+        conflict_resolution = 'skip'
     con = sqlite3.connect(settings.DATABASE)
     cur = con.cursor()
     idx_check = cur.execute('''
@@ -948,15 +997,17 @@ def add_test_data(cwd=None, *, con_name='con'):
                         destination,
                         size,
                         source_type,
-                        destination_type
+                        destination_type,
+                        conflict
                     )
                 VALUES
-                    (?, ?, ?, ?, ?)''', (
+                    (?, ?, ?, ?, ?, ?)''', (
                     source,
                     destination,
                     size,
                     'local',
                     'local',
+                    conflict_resolution
                 )
             )
             batchsize += 1
