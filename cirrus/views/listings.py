@@ -169,7 +169,7 @@ class FileListingTreeView(QTreeView):
                         if item := model.item_from_index(i):
                             # Prevents the root/location bar path
                             # from being added as well. For some reason
-                            # selectedIndexes started caputring this as well
+                            # selectedIndexes started capturing this as well
                             if item.root != parent.root:
                                 if item.root in url_paths:
                                     if item.is_dir:
@@ -196,6 +196,9 @@ class FileListingTreeView(QTreeView):
                 return
             if not settings.session('Apply All Transfers'):
                 conflict_dialog = TransferConflictDialog(parent=self)
+                conflict_dialog.selection_changed.connect(
+                    action.update_conflict
+                )
                 conflict_dialog.accepted.connect(
                     partial(self.process_action, action)
                 )
