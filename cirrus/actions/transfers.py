@@ -4,7 +4,7 @@ from collections import defaultdict
 from functools import partial
 
 from .base import BaseAction, BaseRunnable
-from cirrus import database, dialogs, utils
+from cirrus import database, dialogs, settings, utils
 from cirrus.actions.signals import ActionSignals
 
 from PySide6.QtCore import Slot
@@ -48,12 +48,13 @@ class DropRowsRunnable(BaseRunnable):
 
 class TransferFilterAction(BaseAction):
 
-    def __init__(self, parent, *, destinations, folders=None):
+    def __init__(self, parent, *, destinations, folders=None, conflict=None):
         super().__init__(parent)
         self.dialog = None
         self.parent = parent
         self.destinations = list(destinations)
         self.folders = None if folders is None else list(folders)
+        self.conflict = conflict
         self.setText('Advanced')
         self.setStatusTip(
             'Advanced controls for filtering with additional options'
@@ -65,24 +66,44 @@ class TransferFilterAction(BaseAction):
             folders=self.folders,
             destinations=self.destinations,
         )
-        self.dialog.accepted.connect(self.accepted.emit)
+        self.dialog.accepted.connect(self.show_conflict_dialog)
         self.dialog.setModal(True)
         self.dialog.show()
         return True
 
+    def show_conflict_dialog(self):
+        if not settings.session('Apply All Transfers'):
+            conflict_dialog = dialogs.TransferConflictDialog(
+                parent=self.parent
+            )
+            conflict_dialog.selection_changed.connect(self.update_conflict)
+            conflict_dialog.accepted.connect(self.accepted.emit)
+            conflict_dialog.rejected.connect(
+                partial(print, 'Transfer Rejected')
+            )
+            conflict_dialog.show()
+        else:
+            self.accepted.emit()
+
+    @Slot(str, bool)
+    def update_conflict(self, conflict, checked):
+        if checked:
+            self.conflict = conflict
+
     def runnable(self):
-        return TransferFilterRunnable(self.parent, self.dialog)
+        return TransferFilterRunnable(self.parent, self.dialog, self.conflict)
 
 
 class TransferFilterRunnable(BaseRunnable):
 
-    def __init__(self, parent, dialog):
+    def __init__(self, parent, dialog, conflict=None):
         super().__init__()
         self.setAutoDelete(False)
         self.parent = parent
         self.dialog = dialog
         self.signals = ActionSignals()
         self.stopped = False
+        self.conflict = conflict
 
     @Slot()
     def run(self):
@@ -175,10 +196,10 @@ class TransferFilterRunnable(BaseRunnable):
             i for i in self.dialog.destinations
             if i.root in dest_location_selections
         ]
+        output = defaultdict(list)
+        batch_size = 1
+        processed = 0
         for folder in search_folders:
-            batch_size = 1
-            processed = 0
-            output = defaultdict(list)
             if self.stopped:
                 if output:
                     for dest, queued_items in output.items():
@@ -188,6 +209,7 @@ class TransferFilterRunnable(BaseRunnable):
                             destination=dest.root,
                             s_type=folder.type,
                             d_type=dest.type,
+                            conflict_resolution=self.conflict,
                         )
                         self.signals.callback.emit(cb)
                     self.signals.select.emit()
@@ -206,11 +228,17 @@ class TransferFilterRunnable(BaseRunnable):
                                 destination=dest.root,
                                 s_type=folder.type,
                                 d_type=dest.type,
+                                conflict_resolution=self.conflict,
                             )
                             self.signals.callback.emit(cb)
                         self.signals.select.emit()
                         if self.process:
                             self.signals.process_queue.emit()
+                        if processed:
+                            self.signals.update.emit(
+                                f'Added {processed:,} to queue.'
+                            )
+                            processed = 0
                     self.signals.finished.emit('Stopped')
                     self.signals.aborted.emit()
                     return
@@ -224,11 +252,17 @@ class TransferFilterRunnable(BaseRunnable):
                                     destination=dst_root_type[0],
                                     s_type=folder.type,
                                     d_type=dst_root_type[1],
+                                    conflict_resolution=self.conflict,
                                 )
                                 self.signals.callback.emit(cb)
                             self.signals.select.emit()
                             if self.process:
                                 self.signals.process_queue.emit()
+                            if processed:
+                                self.signals.update.emit(
+                                    f'Added {processed:,} to queue.'
+                                )
+                                processed = 0
                             output = defaultdict(list)
                         dst_path = os.path.dirname(
                             os.path.abspath(
@@ -244,21 +278,21 @@ class TransferFilterRunnable(BaseRunnable):
                         )
                         output[(dst_path, destination.type)].append(result)
                         batch_size += 1
-                if output:
-                    for dst_root_type, queued_items in output.items():
-                        cb = partial(
-                            database.add_transfers,
-                            items=queued_items,
-                            destination=dst_root_type[0],
-                            s_type=folder.type,
-                            d_type=dst_root_type[1],
-                        )
-                        self.signals.callback.emit(cb)
-                    self.signals.select.emit()
-                    if self.process:
-                        self.signals.process_queue.emit()
-                    output = defaultdict(list)
-            processed += batch_size - 1
+                        processed += 1
+        if output:
+            for dst_root_type, queued_items in output.items():
+                cb = partial(
+                    database.add_transfers,
+                    items=queued_items,
+                    destination=dst_root_type[0],
+                    s_type=folder.type,
+                    d_type=dst_root_type[1],
+                    conflict_resolution=self.conflict,
+                )
+                self.signals.callback.emit(cb)
+            self.signals.select.emit()
+            if self.process:
+                self.signals.process_queue.emit()
             if processed:
                 self.signals.update.emit(f'Added {processed:,} to queue.')
         self.signals.finished.emit(f'Testing - {self.parent.root} - FINISHED')
