@@ -37,7 +37,7 @@ class CreateDirectoryAction(BaseAction):
 
 class CopyRecursiveItemsAction(BaseAction):
 
-    def __init__(self, parent, files, folders, destination):
+    def __init__(self, parent, files, folders, destination, conflict=None):
         super().__init__(parent)
         plural_file = 's' if len(files) > 1 else ''
         plural_folder = 's' if len(folders) > 1 else ''
@@ -45,6 +45,7 @@ class CopyRecursiveItemsAction(BaseAction):
         self.files = files
         self.folders = folders
         self.destination = destination
+        self.conflict = conflict
         self.setText(f'Selection >> {self.destination.root}')
         self.setStatusTip(
             f'Copies the selected Folder{plural_folder} '
@@ -57,17 +58,19 @@ class CopyRecursiveItemsAction(BaseAction):
             files=self.files,
             folders=self.folders,
             destination=self.destination,
-            process=True
+            process=True,
+            conflict_resolution=self.conflict
         )
 
 
 class CopyFolderAction(BaseAction):
 
-    def __init__(self, parent, source, destination):
+    def __init__(self, parent, source, destination, conflict=None):
         super().__init__(parent)
         self.destination = destination
         self.parent = parent
         self.source = source
+        self.conflict = conflict
         self.setText(f'{self.parent.root} >> {self.destination.root}')
         self.setStatusTip(
             f'Recursively copies the Files found in {self.parent.root} '
@@ -80,16 +83,18 @@ class CopyFolderAction(BaseAction):
             folder=self.source,
             destination=self.destination,
             process=True,
+            conflict_resolution=self.conflict,
         )
 
 
 class CopyFoldersAction(BaseAction):
 
-    def __init__(self, parent, folders, destination):
+    def __init__(self, parent, folders, destination, conflict=None):
         super().__init__(parent)
         self.parent = parent
         self.folders = folders
         self.destination = destination
+        self.conflict = conflict
         self.setText(f'Folders >> {self.destination.root}')
         self.setStatusTip(
               'Recursively copies the Files found in the selected '
@@ -102,17 +107,19 @@ class CopyFoldersAction(BaseAction):
             folders=self.folders,
             destination=self.destination,
             process=True,
+            conflict_resolution=self.conflict,
         )
 
 
 class CopyFilesAction(BaseAction):
 
-    def __init__(self, parent, files, destination):
+    def __init__(self, parent, files, destination, conflict=None):
         super().__init__(parent)
         plural = 's' if len(files) > 1 else ''
         self.parent = parent
         self.files = files
         self.destination = destination
+        self.conflict = conflict
         self.setText(f'Selected File{plural} >> {self.destination.root}')
         self.setStatusTip(
             f'Copies the selected File{plural} to {self.destination.root}'
@@ -120,18 +127,23 @@ class CopyFilesAction(BaseAction):
 
     def runnable(self):
         return FilesRunnable(
-            self.parent, self.files, self.destination, process=True
+            self.parent,
+            self.files,
+            self.destination,
+            process=True,
+            conflict_resolution=self.conflict,
         )
 
 
 class QueueFilesAction(BaseAction):
 
-    def __init__(self, parent, files, destination):
+    def __init__(self, parent, files, destination, conflict=None):
         super().__init__(parent)
         plural = 's' if len(files) > 1 else ''
         self.parent = parent
         self.files = files
         self.destination = destination
+        self.conflict = conflict
         self.setText(f'Selected File{plural} >> {self.destination.root}')
         self.setStatusTip(
             f'Adds the selected File{plural} to the '
@@ -140,17 +152,18 @@ class QueueFilesAction(BaseAction):
 
     def runnable(self):
         return FilesRunnable(
-            self.parent, self.files, self.destination
+            self.parent, self.files, self.destination, self.conflict
         )
 
 
 class QueueFolderAction(BaseAction):
 
-    def __init__(self, parent, source, destination):
+    def __init__(self, parent, source, destination, conflict=None):
         super().__init__(parent)
         self.destination = destination
         self.parent = parent
         self.source = source
+        self.conflict = conflict
         self.setText(f'{self.parent.root} >> {self.destination.root}')
         self.setStatusTip(
             f'Recursively adds the Files found in {self.parent.root} to the '
@@ -162,16 +175,18 @@ class QueueFolderAction(BaseAction):
             self.parent,
             folder=self.source,
             destination=self.destination,
+            conflict_resolution=self.conflict,
         )
 
 
 class QueueFoldersAction(BaseAction):
 
-    def __init__(self, parent, folders, destination):
+    def __init__(self, parent, folders, destination, conflict=None):
         super().__init__(parent)
         self.parent = parent
         self.folders = folders
         self.destination = destination
+        self.conflict = conflict
         self.setText(f'Folders >> {self.destination.root}')
         self.setStatusTip(
               'Recursively adds the Files found in the selected '
@@ -183,12 +198,13 @@ class QueueFoldersAction(BaseAction):
             self.parent,
             folders=self.folders,
             destination=self.destination,
+            conflict_resolution=self.conflict,
         )
 
 
 class QueueRecursiveItemsAction(BaseAction):
 
-    def __init__(self, parent, files, folders, destination):
+    def __init__(self, parent, files, folders, destination, conflict=None):
         super().__init__(parent)
         plural_file = 's' if len(files) > 1 else ''
         plural_folder = 's' if len(folders) > 1 else ''
@@ -196,6 +212,7 @@ class QueueRecursiveItemsAction(BaseAction):
         self.files = files
         self.folders = folders
         self.destination = destination
+        self.conflict = conflict
         self.setText(f'Selection >> {self.destination.root}')
         self.setStatusTip(
             f'Add the selected Folder{plural_folder} '
@@ -209,6 +226,7 @@ class QueueRecursiveItemsAction(BaseAction):
             files=self.files,
             folders=self.folders,
             destination=self.destination,
+            conflict_resolution=self.conflict,
         )
 
 
@@ -275,6 +293,7 @@ class RecursiveAddItemsRunnable(BaseRunnable):
         parent,
         *,
         destination,
+        conflict=None,
         folder=None,
         folders=None,
         files=None,
@@ -291,6 +310,7 @@ class RecursiveAddItemsRunnable(BaseRunnable):
         if folders is not None:
             self.folders.extend(folders)
         self.destination = destination
+        self.conflict = conflict
 
     @Slot()
     def run(self):
@@ -306,6 +326,7 @@ class RecursiveAddItemsRunnable(BaseRunnable):
                 destination=self.destination.root,
                 s_type=self.parent.type,
                 d_type=self.destination.type,
+                conflict_resolution=self.conflict,
             )
             self.signals.callback.emit(cb)
             self.signals.select.emit()
@@ -313,8 +334,8 @@ class RecursiveAddItemsRunnable(BaseRunnable):
                 self.signals.process_queue.emit()
         output = []
         batch_size = 1
+        processed = 0
         for folder in self.folders:
-            processed = 0
             for root, dirs, files in folder.walk():
                 destination = os.path.abspath(
                     os.path.join(
@@ -331,17 +352,21 @@ class RecursiveAddItemsRunnable(BaseRunnable):
                             destination=destination,
                             s_type=self.parent.type,
                             d_type=self.destination.type,
+                            conflict_resolution=self.conflict,
                         )
                         self.signals.callback.emit(cb)
                         self.signals.select.emit()
                         if self.process:
                             self.signals.process_queue.emit()
+                        if processed:
+                            self.signals.update.emit(
+                                f'Added {processed:,} to queue.'
+                            )
+                            processed = 0
                         output = []
                     output.append(f)
                     batch_size += 1
                     processed += 1
-            if processed:
-                self.signals.update.emit(f'Added {processed:,} to queue.')
         if output:
             cb = partial(
                 database.add_transfers,
@@ -349,6 +374,7 @@ class RecursiveAddItemsRunnable(BaseRunnable):
                 destination=destination,
                 s_type=self.parent.type,
                 d_type=self.destination.type,
+                conflict_resolution=self.conflict,
             )
             self.signals.callback.emit(cb)
             self.signals.select.emit()
@@ -366,13 +392,21 @@ class RecursiveAddItemsRunnable(BaseRunnable):
 
 class FilesRunnable(BaseRunnable):
 
-    def __init__(self, parent, files, destination, process=False):
+    def __init__(
+        self,
+        parent,
+        files,
+        destination,
+        conflict=None,
+        process=False
+    ):
         super().__init__()
         self.process = process
         self.signals = ActionSignals()
         self.parent = parent
         self.files = files
         self.destination = destination
+        self.conflict = conflict
 
     @Slot()
     def run(self):
@@ -385,6 +419,7 @@ class FilesRunnable(BaseRunnable):
             destination=self.destination.root,
             s_type=self.parent.type,
             d_type=self.destination.type,
+            conflict_resolution=self.conflict,
         )
         self.signals.callback.emit(cb)
         self.signals.select.emit()
