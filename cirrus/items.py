@@ -15,14 +15,11 @@ import keyring
 from botocore.config import Config
 from boto3.s3.transfer import TransferConfig
 
-# NOTE: row is obviously wrong
-
 
 class TransferItem:
 
     __slots__ = (
         'pk',
-        'row',
         'source',
         'destination',
         'size',
@@ -33,6 +30,7 @@ class TransferItem:
         '__status',
         'started',
         'completed',
+        'conflict',
     )
 
     def __init__(
@@ -47,9 +45,9 @@ class TransferItem:
                 status=TransferStatus.PENDING,
                 message='Queued',
                 started=None,
+                conflict='skip',
             ):
         self.pk = pk
-        self.row = pk - 1
         self.source = source
         self.destination = destination
         self.size = size
@@ -59,6 +57,7 @@ class TransferItem:
         self.message = message
         self.priority = priority
         self.completed = None
+        self.conflict = conflict
 
     def __gt__(self, other):
         return self.pk > other.pk
@@ -68,7 +67,8 @@ class TransferItem:
 
     def __repr__(self):
         return (
-            f'{self.__class__.__name__}(pk={self.pk}, row={self.row}, '
+            f'{self.__class__.__name__}(pk={self.pk}, '
+            f'conflict="{self.conflict}", '
             f'source="{self.source}", '
             f'destination="{self.destination}", size={self.size}, '
             f'message="{self.message}", processed={self.processed}, '
@@ -169,6 +169,14 @@ class LocalItem:
     def clean(self, path):
         return path.replace('/', os.sep).replace('\\', os.sep)
 
+    def exists(self):
+        try:
+            _ = os.stat(self.root)
+        except FileNotFoundError:
+            return False
+        else:
+            True
+
     def listdir(self, path=None):
         if not self.is_dir:
             raise ItemIsNotADirectory
@@ -229,11 +237,8 @@ class LocalItem:
                     file_items.append(item)
             yield root_item, dir_items, file_items
 
-    def upload(self, callback=None, overwrite=False, buffer_size=4096):
+    def upload(self, callback=None, buffer_size=4096):
         try:
-            if not overwrite and os.path.isfile(self.root):
-                # TODO: Conflict resolution
-                raise FileExistsError
             written_amount = 0
             data = b''
             os.makedirs(os.path.dirname(self.root), exist_ok=True)
@@ -311,8 +316,16 @@ class LocalItem:
 class BaseS3Item:
 
     def __init__(
-        self, client, *, size=0, mtime=0, is_dir=False, collapsed=True
+        self,
+        client,
+        *,
+        size=0,
+        mtime=0,
+        ctime=0,
+        is_dir=False,
+        collapsed=True,
     ):
+        client['Root'] = self.clean(client['Root'])
         if not client['Root'].startswith('/'):
             client['Root'] = '/' + client['Root']
         self.root = client['Root']
@@ -336,7 +349,16 @@ class BaseS3Item:
         raise NotImplementedError('Must be specified in sub-class')
 
     @classmethod
-    def create(cls, client, *, size=0, mtime=0, is_dir=False, collapsed=True):
+    def create(
+        cls,
+        client,
+        *,
+        size=0,
+        mtime=0,
+        ctime=0,
+        is_dir=False,
+        collapsed=True
+    ):
         return cls(
             client=client,
             size=size,
@@ -382,6 +404,16 @@ class BaseS3Item:
 
     def clean(self, path):
         return path.replace('\\', '/')
+
+    def exists(self):
+        client = self.setup_client()
+        try:
+            # client.get_object_attributes was returning hex data?
+            _ = client.get_object(Bucket=self.bucket, Key=self.key)
+        except client.exceptions.NoSuchKey:
+            return False
+        else:
+            return True
 
     def makedirs(self, exist_ok=True):
         if not self.is_dir:
@@ -463,10 +495,7 @@ class BaseS3Item:
                     self.client, bucket=bucket, content=content
                 )
 
-    def upload(self, callback=None, overwrite=False, buffer_size=4096):
-        # TODO: Conflict resolution
-        #       Do a pre-flight settings check, i.e.,
-        #       if not overwrite; check, raise, etc.
+    def upload(self, callback=None, buffer_size=4096):
         c_type, _ = mimetypes.guess_type(self.key)
         if c_type is None:
             c_type = 'application/octet-stream'
