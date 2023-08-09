@@ -1,10 +1,13 @@
+import hashlib
 import logging
+import os
 import random
 import threading
 import time
 import uuid
 
 
+from cirrus.exceptions import ConflictException
 from cirrus.items import TransferItem
 from cirrus.statuses import TransferStatus
 from PySide6.QtCore import (
@@ -105,8 +108,12 @@ class Executor(QObject):
             item.status = TransferStatus.QUEUED
             item.message = 'Shutdown'
             return
+        if skip_transfer(item):
+            item.status = TransferStatus.COMPLETED
+            item.message = 'Skipped'
+            return
         source = item.source
-        upload_recv = item.destination.upload(overwrite=True)
+        upload_recv = item.destination.upload(conflict=item.conflict)
         try:
             upload_recv.send(None)
             for chunk in source.download():
@@ -138,6 +145,10 @@ class Executor(QObject):
         bitrate = 1
         # bitrate = .1
         completed = 0
+        if skip_transfer(item):
+            item.status = TransferStatus.COMPLETED
+            item.message = 'Skipped'
+            return
         while completed < item.size:
             if self.__stop:
                 item.message = 'Shutdown'
@@ -182,3 +193,67 @@ class Executor(QObject):
         if not self.database_queue.join():
             logging.warn('Could not stop database_queue')
         self.stop()
+
+
+def skip_transfer(transfer_item):
+    # Terrible name
+    """If the TransferItem.conflict is 'overwrite', returns True.
+
+    Otherwise, checks if the TransferItem.destination already exists in its
+    respective location. If so, compares the existing destination
+    file against the TransferItem.source file information.
+
+    The supplied conflict resolution in the TransferItem.conflict
+    will be used.
+
+    The function will return True if the transfer should skipped; else, False
+
+    For convenience, the comparison strings are:
+        - overwrite
+        - hash
+        - size
+        - newer
+        - rename
+        - skip
+    """
+    if transfer_item.conflict == 'overwrite':
+        # Skip all checks
+        return False
+    if not transfer_item.destination.exists:
+        return False
+    else:
+        if transfer_item.conflict == 'skip':
+            return True
+    if transfer_item.conflict == 'hash':
+        # TODO: Add logging/status indicator updates as s3/DO may take a while
+        source_hash_md5 = hashlib.md5()
+        for chunk in transfer_item.source.download():
+            source_hash_md5.update(chunk)
+        dest_hash_md5 = hashlib.md5()
+        for chunk in transfer_item.destination.download():
+            dest_hash_md5.update(chunk)
+        return source_hash_md5.hexdigest() == dest_hash_md5.hexdigest()
+    if transfer_item.conflict == 'size':
+        return transfer_item.source.size == transfer_item.destination.size
+    if transfer_item.conflict == 'newer':
+        return transfer_item.source.mtime <= transfer_item.destination.mtime
+    if transfer_item.conflict == 'rename':
+        client_copy = transfer_item.destination.client.copy()
+        root, fname = os.path.split(transfer_item.destination.root)
+        version = 0
+        while transfer_item.destination.exists:
+            version += 1
+            client_copy['Root'] = os.path.join(
+                root,
+                f' ({version})'.join(os.path.splitext(fname))
+            )
+            new_item = transfer_item.destination.create(
+                client_copy,
+                size=transfer_item.destination.size,
+                is_dir=transfer_item.destination.is_dir,
+                mtime=transfer_item.destination.mtime,
+                ctime=transfer_item.destination.ctime,
+            )
+            transfer_item.destination = new_item
+        return False
+    raise ConflictException(str(transfer_item))
