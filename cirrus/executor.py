@@ -90,30 +90,31 @@ class Executor(QObject):
                 self.stopped.emit(transfer_item)
                 return
             transfer_item.status = TransferStatus.TRANSFERRING
-            self.transfer_started.emit(transfer_item)
-            self.process(transfer_item)
-            if self.__stop:
-                if transfer_item.processed == transfer_item.size:
-                    self.finished.emit(transfer_item)
-                else:
-                    self.stopped.emit(transfer_item)
-                return
-            else:
+            if skip_transfer(transfer_item):
+                transfer_item.status = TransferStatus.COMPLETED
+                transfer_item.message = 'Skipped'
                 self.finished.emit(transfer_item)
+            else:
+                self.transfer_started.emit(transfer_item)
+                self.process(transfer_item)
+                if self.__stop:
+                    if transfer_item.processed == transfer_item.size:
+                        self.finished.emit(transfer_item)
+                    else:
+                        self.stopped.emit(transfer_item)
+                    return
+                else:
+                    self.finished.emit(transfer_item)
         self.decrease_worker_count()  # semaphore or something
         self.completed.emit()
 
-    def _process(self, item):
+    def process(self, item):
         if self.__stop:
             item.status = TransferStatus.QUEUED
             item.message = 'Shutdown'
             return
-        if skip_transfer(item):
-            item.status = TransferStatus.COMPLETED
-            item.message = 'Skipped'
-            return
         source = item.source
-        upload_recv = item.destination.upload(conflict=item.conflict)
+        upload_recv = item.destination.upload()
         try:
             upload_recv.send(None)
             for chunk in source.download():
@@ -137,7 +138,7 @@ class Executor(QObject):
         finally:
             upload_recv.close()
 
-    def process(self, item):
+    def _process(self, item):
         # This is a placeholder function for testing
         # bitrate = 10 * (1024 * 1024)
         # bitrate = 1024
@@ -226,6 +227,7 @@ def skip_transfer(transfer_item):
             return True
     if transfer_item.conflict == 'hash':
         # TODO: Add logging/status indicator updates as s3/DO may take a while
+        # TODO: Change the TransferItems 'rate' to 'Checking hash...'
         source_hash_md5 = hashlib.md5()
         for chunk in transfer_item.source.download():
             source_hash_md5.update(chunk)
