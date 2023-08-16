@@ -22,9 +22,6 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-# TODO: CTRL+CLICK to setup multiple splitter panels at login
-# TODO: Style
-
 
 class LoginWindow(QDialog):
     account_selected = Signal(list)
@@ -384,11 +381,11 @@ class AccountLabel(QLabel):
             Qt.TextSelectableByMouse | Qt.TextSelectableByKeyboard
         )
         self.setTextFormat(Qt.RichText)
-        self.setText(
-            '\n'.join(
-                f'<div><b>{k}:</b> {v}</div>' for k, v in account.items() if v
-            )
-        )
+        text = ''
+        for key in sorted(account.keys()):
+            if value := account[key]:
+                text += f'<div><b>{key}:</b> {value}</div>'
+        self.setText(text)
 
     def mousePressEvent(self, event):
         if not self.frameShadow() == QFrame.Sunken:
