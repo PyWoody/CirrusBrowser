@@ -56,6 +56,7 @@ class CentralWidgetWindow(QWidget):  # Terrible name
         )
 
         # Timers
+        self.timers_running = False
         self.update_timer = QTimer()
         self.update_timer.setInterval(500)
         self.update_timer.timeout.connect(self.update_transfering_rows)
@@ -105,6 +106,9 @@ class CentralWidgetWindow(QWidget):  # Terrible name
             self.database_queue.build_queue
         )
         self.executor.started.connect(
+            self.toggle_timers_flag
+        )
+        self.executor.started.connect(
             self.update_timer.start
         )
         self.executor.started.connect(
@@ -113,15 +117,10 @@ class CentralWidgetWindow(QWidget):  # Terrible name
         self.executor.started.connect(
             self.batch_finished_timer.start
         )
-        # Stop Timers
+
+        # Stop Timers (set Flag)
         self.executor.completed.connect(
-            self.batch_finished_timer.stop
-        )
-        self.executor.completed.connect(
-            self.update_timer.stop
-        )
-        self.executor.completed.connect(
-            self.batch_start_timer.stop
+            self.toggle_timers_flag
         )
 
         # Should this be a QSplitter instead?
@@ -288,13 +287,16 @@ class CentralWidgetWindow(QWidget):  # Terrible name
         if current_pos / max_pos > .75:
             QTimer.singleShot(0, widget.model().delta_select)
 
+    def toggle_timers_flag(self, *args, **kwargs):
+        self.timers_running = False if self.timers_running else True
+
     @Slot()
     def update_transfering_rows(self):
         QTimer.singleShot(0, self.__update_transfering_rows)
+        if not self.timers_running:
+            self.update_timer.stop()
 
     def __update_transfering_rows(self):
-        # TODO: NOTE TESTING
-        # return
         if self.current_transfers:
             current_widget = self.transfers_window.tabs.currentWidget()
             transfers = self.transfers_window.transfers
@@ -347,6 +349,8 @@ class CentralWidgetWindow(QWidget):  # Terrible name
                      'to `database.started_batch_update`')
                 )
             self.__started_transfers_to_update.clear()
+        if not self.timers_running:
+            self.batch_start_timer.stop()
 
     def batch_completed_db_update(self):
         output = []
@@ -377,3 +381,5 @@ class CentralWidgetWindow(QWidget):  # Terrible name
         if output:
             self.transfers_window.select_completed_rows(output)
             del output
+        if not self.timers_running:
+            self.batch_finished_timer.stop()
