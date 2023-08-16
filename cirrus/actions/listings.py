@@ -59,7 +59,7 @@ class CopyRecursiveItemsAction(BaseAction):
             folders=self.folders,
             destination=self.destination,
             process=True,
-            conflict_resolution=self.conflict
+            conflict=self.conflict
         )
 
 
@@ -83,7 +83,7 @@ class CopyFolderAction(BaseAction):
             folder=self.source,
             destination=self.destination,
             process=True,
-            conflict_resolution=self.conflict,
+            conflict=self.conflict,
         )
 
 
@@ -107,7 +107,7 @@ class CopyFoldersAction(BaseAction):
             folders=self.folders,
             destination=self.destination,
             process=True,
-            conflict_resolution=self.conflict,
+            conflict=self.conflict,
         )
 
 
@@ -131,7 +131,7 @@ class CopyFilesAction(BaseAction):
             self.files,
             self.destination,
             process=True,
-            conflict_resolution=self.conflict,
+            conflict=self.conflict,
         )
 
 
@@ -175,7 +175,7 @@ class QueueFolderAction(BaseAction):
             self.parent,
             folder=self.source,
             destination=self.destination,
-            conflict_resolution=self.conflict,
+            conflict=self.conflict,
         )
 
 
@@ -198,7 +198,7 @@ class QueueFoldersAction(BaseAction):
             self.parent,
             folders=self.folders,
             destination=self.destination,
-            conflict_resolution=self.conflict,
+            conflict=self.conflict,
         )
 
 
@@ -226,7 +226,7 @@ class QueueRecursiveItemsAction(BaseAction):
             files=self.files,
             folders=self.folders,
             destination=self.destination,
-            conflict_resolution=self.conflict,
+            conflict=self.conflict,
         )
 
 
