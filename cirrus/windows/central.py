@@ -101,12 +101,9 @@ class CentralWidgetWindow(QWidget):  # Terrible name
             self.transfers_window.select_current_tab_model
         )
 
-        # Start Timers
+        # Started Timers Actions
         self.executor.started.connect(
             self.database_queue.build_queue
-        )
-        self.executor.started.connect(
-            self.toggle_timers_flag
         )
         self.executor.started.connect(
             self.update_timer.start
@@ -116,11 +113,6 @@ class CentralWidgetWindow(QWidget):  # Terrible name
         )
         self.executor.started.connect(
             self.batch_finished_timer.start
-        )
-
-        # Stop Timers (set Flag)
-        self.executor.completed.connect(
-            self.toggle_timers_flag
         )
 
         # Should this be a QSplitter instead?
@@ -287,8 +279,11 @@ class CentralWidgetWindow(QWidget):  # Terrible name
         if current_pos / max_pos > .75:
             QTimer.singleShot(0, widget.model().delta_select)
 
-    def toggle_timers_flag(self, *args, **kwargs):
-        self.timers_running = False if self.timers_running else True
+    def toggle_timers_flag(self, checked):
+        if checked:
+            self.timers_running = True
+        else:
+            self.timers_running = False
 
     @Slot()
     def update_transfering_rows(self):
@@ -381,5 +376,5 @@ class CentralWidgetWindow(QWidget):  # Terrible name
         if output:
             self.transfers_window.select_completed_rows(output)
             del output
-        if not self.timers_running:
+        if not self.timers_running and not self.current_transfers:
             self.batch_finished_timer.stop()

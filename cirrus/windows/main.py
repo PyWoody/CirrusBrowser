@@ -29,6 +29,9 @@ class MainWindow(QMainWindow):
         toggle_transfers_action = actions.menus.ToggleProcessingTransfers(
             self.central_widget
         )
+        toggle_transfers_action.triggered.connect(
+            self.central_widget.toggle_timers_flag
+        )
         toggle_transfers_panel_action = actions.menus.ToggleTransferPanel(
             self.central_widget
         )
