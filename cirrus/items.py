@@ -166,16 +166,17 @@ class LocalItem:
             ctime=ctime,
         )
 
-    def clean(self, path):
-        return path.replace('/', os.sep).replace('\\', os.sep)
-
+    @property
     def exists(self):
         try:
             _ = os.stat(self.root)
         except FileNotFoundError:
             return False
         else:
-            True
+            return True
+
+    def clean(self, path):
+        return path.replace('/', os.sep).replace('\\', os.sep)
 
     def listdir(self, path=None):
         if not self.is_dir:
@@ -402,9 +403,7 @@ class BaseS3Item:
             if len(root) >= 2:
                 return '/'.join(root).lstrip('/').rstrip('/') + '/'
 
-    def clean(self, path):
-        return path.replace('\\', '/')
-
+    @property
     def exists(self):
         client = self.setup_client()
         try:
@@ -414,6 +413,9 @@ class BaseS3Item:
             return False
         else:
             return True
+
+    def clean(self, path):
+        return path.replace('\\', '/')
 
     def makedirs(self, exist_ok=True):
         if not self.is_dir:
