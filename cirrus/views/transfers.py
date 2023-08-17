@@ -43,7 +43,8 @@ class ErrorsDatabaseTreeView(QTreeView):
         header.setSectionHidden(0, True)
         header.setSectionHidden(4, True)
         header.setSectionHidden(5, True)
-        # header.setSectionResizeMode(8, QHeaderView.Stretch)
+        header.resizeSections(QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(11, QHeaderView.Stretch)
 
 
 class TransfersDatabaseTreeView(QTreeView):
@@ -73,7 +74,7 @@ class TransfersDatabaseTreeView(QTreeView):
         pk_col = 0
         source_col = 1
         destination_col = 2
-        # progress_col = 3
+        progress_col = 3
         priority_col = 6
         status_col = 7
         end_time_col = 9
@@ -83,9 +84,6 @@ class TransfersDatabaseTreeView(QTreeView):
         # status | destination | pbar | rate | size | status
         header = QHeaderView(Qt.Horizontal)
         self.setHeader(header)
-        # header.setSectionResizeMode(source_col, QHeaderView.Stretch)
-        # header.setSectionResizeMode(destination_col, QHeaderView.Stretch)
-        # header.setSectionResizeMode(progress_col, QHeaderView.Stretch)
         header.resizeSection(source_col, 200)
         header.resizeSection(destination_col, 200)
         header.setSectionHidden(pk_col, True)
@@ -95,6 +93,9 @@ class TransfersDatabaseTreeView(QTreeView):
         header.setSectionHidden(error_message_col, True)
         header.setSectionHidden(source_type_col, True)
         header.setSectionHidden(dest_type_col, True)
+        header.setSectionResizeMode(source_col, QHeaderView.Stretch)
+        header.setSectionResizeMode(destination_col, QHeaderView.Stretch)
+        header.setSectionResizeMode(progress_col, QHeaderView.Stretch)
 
     @Slot(QKeyEvent)
     def keyPressEvent(self, event):
@@ -211,5 +212,7 @@ class ResultsDatabaseTreeView(QTreeView):
         header.setSectionHidden(4, True)
         header.setSectionHidden(5, True)
         header.setSectionHidden(8, True)
-        # header.setSectionResizeMode(1, QHeaderView.Stretch)
-        # header.setSectionResizeMode(2, QHeaderView.Stretch)
+        header.setSectionHidden(11, True)
+        header.resizeSections(QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(1, QHeaderView.Stretch)
+        header.setSectionResizeMode(2, QHeaderView.Stretch)

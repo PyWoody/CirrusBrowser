@@ -169,6 +169,8 @@ class TransfersTableModel(QSqlQueryModel):
                     name = TransferPriority(priority).name
                     return ' '.join(i.capitalize() for i in name.split('_'))
                 return 'Normal'
+            else:
+                return super().data(index, role=role)
         elif role == Qt.TextAlignmentRole:
             if column in self.align_left_cols:
                 return Qt.AlignLeft
