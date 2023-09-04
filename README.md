@@ -1,6 +1,5 @@
 # Cirrus Browser
 ## Experimental file manager for S3-like systems
----
 
 The Cirrus Browser is a work-in-progress experimental file manager for S3-like systems. It supports uploading, downloading, and removing files from your preferred hosting provider.
 <br />
