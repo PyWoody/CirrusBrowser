@@ -254,7 +254,7 @@ class LoginWindow(QDialog):
                 root=root,
             )
             session = boto3.session.Session()
-            client = session.client(
+            s3_client = session.client(
                 's3',
                 region_name=region,
                 endpoint_url=endpoint,
@@ -269,7 +269,7 @@ class LoginWindow(QDialog):
             }
             if item.space:
                 config['Prefix'] = item.space
-            _ = client.list_objects_v2(**config)
+            _ = s3_client.list_objects_v2(**config)
         except ValueError as e:
             # Alert
             msg = f'<b>Error:</b> {str(e)}'
