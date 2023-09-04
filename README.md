@@ -43,6 +43,7 @@ python3 -m pip install -r requirements.txt
 ```
 <br />
 <br />
+
 ### Screenshots
 ---
 
@@ -67,5 +68,3 @@ python3 -m pip install -r requirements.txt
 *Multiple destinations*
 
 *Filtering*
-<br />
-<br />
