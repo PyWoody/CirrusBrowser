@@ -5,6 +5,8 @@ import os
 import shutil
 import threading
 
+from datetime import datetime
+
 from cirrus import utils
 from cirrus.exceptions import CallbackError, ItemIsNotADirectory
 from cirrus.statuses import TransferStatus, TransferPriority
@@ -147,6 +149,7 @@ class LocalItem:
     def __repr__(self):
         return (f'{self.__class__.__name__}('
                 f'{self.client}, '
+                f'root={self.root}, '
                 f'size={self.size}, '
                 f'is_dir={self.is_dir}, '
                 f'mtime={self.mtime}, '
@@ -197,8 +200,8 @@ class LocalItem:
                 item = self.create(
                     _client,
                     size=stat.st_size,
-                    mtime=stat.st_mtime,
-                    ctime=stat.st_ctime
+                    mtime=datetime.fromtimestamp(stat.st_mtime),
+                    ctime=datetime.fromtimestamp(stat.st_ctime),
                 )
                 yield item
             return
@@ -232,8 +235,8 @@ class LocalItem:
                     item = self.create(
                         _client,
                         size=stat.st_size,
-                        mtime=stat.st_mtime,
-                        ctime=stat.st_ctime
+                        mtime=datetime.fromtimestamp(stat.st_mtime),
+                        ctime=datetime.fromtimestamp(stat.st_ctime),
                     )
                     file_items.append(item)
             yield root_item, dir_items, file_items

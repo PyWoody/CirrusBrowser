@@ -150,7 +150,6 @@ class SearchRunnable(BaseRunnable):
             search_func = self.recursive_search
         else:
             search_func = self.top_level_search
-        results = []
         if len(self.dialog.folders) == 1:
             location_selections = {self.dialog.folders[0].root}
         else:
@@ -161,6 +160,7 @@ class SearchRunnable(BaseRunnable):
         search_folders = (
             i for i in self.dialog.folders if i.root in location_selections
         )
+        results = []
         for folder in search_folders:
             if self.stopped:
                 self.signals.finished.emit('Stopped')
