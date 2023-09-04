@@ -1,10 +1,12 @@
 # Cirrus Browser
 ## Experimental file manager for S3-like systems
+---
 
 The Cirrus Browser is a work-in-progress experimental file manager for S3-like systems. It supports uploading, downloading, and removing files from your preferred hosting provider.
 <br />
 <br />
 ### Features
+---
 **All Transfers are done in-memory without touching the underlying file system**
 
 Transfers will all be performed using in-memory buffers with no unnecessary read/writes on the file system. Transfers begin immediately as soon as the first packet is sent.
@@ -30,6 +32,7 @@ Searching in multiple locations at once is supported.
 <br />
 <br />
 ### Installation
+---
 
 Requires `PySide6` for GUI, `boto3` for S3 compatibility, and `keyring` for securely storing credentials.
 
@@ -42,6 +45,7 @@ python3 -m pip install -r requirements.txt
 <br />
 <br />
 ### Screenshots
+---
 
 **Drag-and-Drop**
 
