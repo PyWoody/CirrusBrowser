@@ -6,20 +6,28 @@ The Cirrus Browser is a work-in-progress experimental file manager for S3-like s
 
 ### Features
 **All Transfers are done in-memory without touching the underlying file system**
+
 Transfers will all be performed using in-memory buffers with no unnecessary read/writes on the file system. Transfers begin immediately as soon as the first packet is sent.
 
+
 **Transfer to multiple destinations at once**
+
 Toggle available destinations to Transfer files to multiple destinations at once.
 
+
 **Filter files to be transferred**
+
 No need to create temporary directories just to transfer a subset of the files. Transfers support selectively filtering the source items to the destinations. The available filters are by filename, filetype, creation/modification times, and size.
 
 Upload all of your .PNGs that were modified in the past two days and are over 10MB, for instance.
 
+
 **Fast iterative search in multiple locations yields results immediately as the occur**
+
 The iterative approach to search will yield results immediately as they are found. From the Search Results Window, you can easily Stop the search, Delete the selected results, or Download the selected results to the selected destinations.
 
 Searching in multiple locations at once is supported.
+
 
 
 ### Installation
@@ -34,6 +42,7 @@ python3 -m pip install -r requirements.txt
 ```
 
 
+
 ### Screenshots
 
 **Drag-and-Drop**
@@ -41,6 +50,7 @@ python3 -m pip install -r requirements.txt
 *Panel-to-Panel*
 
 *From the File System*
+
 
 
 **Searching**
@@ -52,8 +62,11 @@ python3 -m pip install -r requirements.txt
 *Modifying Results*
 
 
+
 **Transfers**
 
 *Multiple destinations*
 
 *Filtering*
+
+
