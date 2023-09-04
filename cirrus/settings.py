@@ -8,10 +8,13 @@ RW_LOCK = QReadWriteLock()
 
 ROOT = os.path.abspath(os.path.dirname(__file__))
 DATA_DIR = os.path.join(ROOT, 'data')
+os.makedirs(DATA_DIR, exist_ok=True)
 ICON_DIR = os.path.join(ROOT, 'icons')
+os.makedirs(ICON_DIR, exist_ok=True)
 SETUP = os.path.join(DATA_DIR, 'setup.json')
 DATABASE = os.path.join(DATA_DIR, 'cirrus.db')
 LOG = os.path.join(ROOT, 'logs', 'cirrus.log')
+os.makedirs(os.path.dirname(LOG), exist_ok=True)
 SESSION_DATA = dict()  # TODO: switch to protected class approach
 
 
