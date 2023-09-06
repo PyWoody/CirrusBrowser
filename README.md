@@ -43,7 +43,15 @@ python3 -m pip install -r requirements.txt
 ```
 <br />
 <br />
+### Running
+---
+Binaries are not available at this time. You will need to launch from the terminal.
 
+```python3
+python3 -m cirrus
+```
+<br />
+<br />
 ### Screenshots
 ---
 
